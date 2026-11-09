@@ -28,6 +28,7 @@ CMD_DEVICE_PROPERTIES = "; ".join(
         'echo "SDK=$(getprop ro.build.version.sdk)"',
         'echo "SERIAL=$(getprop ro.serialno)"',
         'echo "BUILD=$(getprop ro.build.display.id)"',
+        'echo "HDMI_TYPE=$(getprop ro.hdmi.device_type)"',
         _section("LINK", "ip -o link show 2>/dev/null"),
         _section("ADDR", "ip -o -4 addr show 2>/dev/null"),
     ]

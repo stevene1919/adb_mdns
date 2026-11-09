@@ -16,7 +16,6 @@ from homeassistant.data_entry_flow import FlowResult
 from zeroconf.asyncio import AsyncServiceBrowser
 
 from .const import (
-    CONF_MAC,
     CONF_PAIRING_PORT,
     CONF_PIN,
     CONF_PRIVATE_KEY,
@@ -24,12 +23,10 @@ from .const import (
     DOMAIN,
 )
 from .core import (
-    AndroidTvAdbClient,
     generate_keypair,
     pair_device,
 )
 from .options_flow import AndroidTvAdbOptionsFlowHandler
-from .tv import CMD_DEVICE_PROPERTIES, parse_device_properties
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -276,46 +273,18 @@ class AndroidTvAdbConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         await self._async_discover_mdns_ports(timeout=2.0)
                     else:
                         if not connect_port:
-                            await self._async_discover_mdns_ports(timeout=3.0)
+                            await self._async_discover_mdns_ports(timeout=2.0)
                             connect_port = self.connect_port
 
-                        device_props: dict[str, str] = {}
-                        if connect_port:
-                            client = AndroidTvAdbClient(self.host, connect_port, key)
-                            try:
-                                await client.connect(timeout=8.0)
-                                out = await client.shell(CMD_DEVICE_PROPERTIES, timeout=6.0)
-                                device_props = parse_device_properties(out, host=self.host)
-                                if device_props.get("name"):
-                                    self.device_name = device_props["name"]
-                                if device_props.get("manufacturer"):
-                                    self.manufacturer = device_props["manufacturer"]
-                                if device_props.get("model"):
-                                    self.model = device_props["model"]
-                                await client.disconnect()
-                            except Exception as err:
-                                _LOGGER.debug("Could not fetch device properties immediately: %s", err)
-
-                        entry_data: dict[str, Any] = {
-                            CONF_HOST: self.host,
-                            CONF_PORT: connect_port,
-                            CONF_PRIVATE_KEY: pem,
-                            CONF_NAME: self.device_name,
-                        }
-                        if device_props.get("mac"):
-                            entry_data[CONF_MAC] = device_props["mac"]
-                        if device_props.get("sw_version"):
-                            entry_data["sw_version"] = device_props["sw_version"]
-                        if device_props.get("serialno"):
-                            entry_data["serialno"] = device_props["serialno"]
-                        if device_props.get("model"):
-                            entry_data["model"] = device_props["model"]
-                        if device_props.get("manufacturer"):
-                            entry_data["manufacturer"] = device_props["manufacturer"]
-
+                        title = f"Android TV ({self.host})"
                         return self.async_create_entry(
-                            title=self.device_name,
-                            data=entry_data,
+                            title=title,
+                            data={
+                                CONF_HOST: self.host,
+                                CONF_PORT: connect_port,
+                                CONF_PRIVATE_KEY: pem,
+                                CONF_NAME: title,
+                            },
                         )
 
                 except ValueError as err:

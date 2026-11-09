@@ -178,6 +178,32 @@ class AndroidTvAdbCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         """Return True if ADB client is connected."""
         return self.client.is_connected
 
+    @property
+    def is_tv_panel(self) -> bool:
+        """Return True if the target device is a physical TV panel with HDMI inputs."""
+        model = (self.device_properties.get("model") or "").lower()
+        mfg = (self.device_properties.get("manufacturer") or "").lower()
+        dev_type = str(self.device_properties.get("hdmi_device_type") or "").strip()
+
+        # Obvious playback devices/dongles (e.g. Chromecast, Fire TV, Shield, Mi Box)
+        if "chromecast" in model or "chromecast" in mfg:
+            return False
+        if dev_type == "4":  # HDMI-CEC Playback Device
+            return False
+        if any(term in model for term in ("shield", "fire tv stick", "firestick", "mi box", "onn.", "stick")):
+            return False
+
+        # If it has enumerated physical hardware inputs, it's definitely a TV
+        if any(inp.kind == "hdmi" for inp in self.inputs):
+            return True
+
+        # If hdmi_device_type is explicitly 0 (TV)
+        if dev_type == "0":
+            return True
+
+        # Fallback: if model has "tv" and not a streaming stick/box
+        return "tv" in model and not any(term in model for term in ("stick", "box", "dongle"))
+
     async def async_fetch_device_properties(self) -> dict[str, str]:
         """Fetch hardware and firmware properties safely with key-value parser."""
         try:
@@ -198,6 +224,7 @@ class AndroidTvAdbCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 "sw_version": ver,
                 "serialno": ser,
                 "mac": mac,
+                "hdmi_device_type": parsed.get("hdmi_device_type", ""),
                 "interface": parsed.get("interface", ""),
             }
             _LOGGER.info("Updated device properties for %s: %s", self.host, self.device_properties)
@@ -326,6 +353,19 @@ class AndroidTvAdbCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         except Exception as err:
             _LOGGER.debug("Error checking service %s: %s", name, err)
 
+    async def _async_initial_background_load(self) -> None:
+        """Asynchronously load device properties, installed apps, and initial health telemetry in background."""
+        try:
+            if not self.client.is_connected:
+                await self.client.connect(timeout=6.0)
+            if self.client.is_connected:
+                await self.async_fetch_device_properties()
+                await self.async_refresh_installed_apps()
+                await self._async_update_health()
+                await self.async_request_refresh()
+        except Exception as err:
+            _LOGGER.debug("Background initial load deferred for %s: %s", self.host, err)
+
     async def async_setup(self) -> None:
         """Set up dynamic mDNS listener to track changing TLS connect ports and load device info."""
         if self.client.port <= 0:
@@ -340,11 +380,13 @@ class AndroidTvAdbCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         try:
             if not self.client.is_connected:
                 await self.client.connect(timeout=6.0)
-            if self.client.is_connected:
-                await self.async_fetch_device_properties()
-                await self.async_refresh_installed_apps()
+            # Avoid delaying initial setup: defer slow queries (pm list, meminfo, screencap) to background
+            now = time.time()
+            self._last_health_time = now
+            self._last_screencap_time = now
+            self.hass.async_create_task(self._async_initial_background_load())
         except Exception as err:
-            _LOGGER.debug("Initial setup device properties fetch deferred: %s", err)
+            _LOGGER.debug("Initial setup connection deferred: %s", err)
 
         try:
             aiozc = zeroconf.async_get_async_zeroconf(self.hass)

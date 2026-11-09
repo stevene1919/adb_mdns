@@ -150,3 +150,55 @@ async def test_config_flow_user_step_empty_host() -> None:
     assert result["type"] == "form"
     assert result["step_id"] == "user"
     assert result["errors"] == {"host": "invalid_host"}
+
+
+@pytest.mark.anyio
+async def test_is_tv_panel_and_hdmi_sensor_gating() -> None:
+    """Test is_tv_panel distinction and HDMI sensor gating between TVs and Chromecast."""
+    from custom_components.adb_mdns.sensor import (
+        AndroidTvAdbHdmiInputSensor,
+        async_setup_entry as async_setup_sensor_entry,
+    )
+    from custom_components.adb_mdns.tv import TvInput
+
+    hass = MagicMock()
+    entry = MagicMock()
+    entry.data = {CONF_HOST: "192.168.50.10"}
+    client = MagicMock()
+
+    # 1. Test Chromecast (should NOT be a TV panel, HDMI sensor should NOT be added)
+    coord_chromecast = AndroidTvAdbCoordinator(hass, entry, client)
+    entry.runtime_data = coord_chromecast
+    coord_chromecast.device_properties = {
+        "model": "Chromecast",
+        "manufacturer": "Google",
+        "hdmi_device_type": "4",
+    }
+    assert coord_chromecast.is_tv_panel is False
+
+    added_chromecast_entities: list = []
+    await async_setup_sensor_entry(
+        hass,
+        entry,
+        lambda entities: added_chromecast_entities.extend(entities),
+    )
+    assert not any(isinstance(e, AndroidTvAdbHdmiInputSensor) for e in added_chromecast_entities)
+
+    # 2. Test Real Android TV (e.g. Sony Bravia or with HDMI inputs)
+    coord_tv = AndroidTvAdbCoordinator(hass, entry, client)
+    entry.runtime_data = coord_tv
+    coord_tv.device_properties = {
+        "model": "BRAVIA 4K VH2",
+        "manufacturer": "Sony",
+        "hdmi_device_type": "0",
+    }
+    coord_tv.inputs = [TvInput(id="HW1", kind="hdmi", port=1, device="", label="HDMI 1", key=243)]
+    assert coord_tv.is_tv_panel is True
+
+    added_tv_entities: list = []
+    await async_setup_sensor_entry(
+        hass,
+        entry,
+        lambda entities: added_tv_entities.extend(entities),
+    )
+    assert any(isinstance(e, AndroidTvAdbHdmiInputSensor) for e in added_tv_entities)

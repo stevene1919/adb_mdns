@@ -95,6 +95,7 @@ def parse_device_properties(output: str, host: str | None = None) -> dict[str, s
         "sdk": kv.get("SDK", ""),
         "serialno": kv.get("SERIAL", ""),
         "build": kv.get("BUILD", ""),
+        "hdmi_device_type": kv.get("HDMI_TYPE", ""),
         "mac": mac,
         "interface": iface_for_host or "",
     }

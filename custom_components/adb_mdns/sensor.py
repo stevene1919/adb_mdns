@@ -42,7 +42,6 @@ async def async_setup_entry(
     )
     entities: list[SensorEntity] = [
         AndroidTvAdbCurrentAppSensor(coordinator, entry),
-        AndroidTvAdbHdmiInputSensor(coordinator, entry),
         AndroidTvAdbAudioOutputSensor(coordinator, entry),
         AndroidTvAdbSessionStatusSensor(coordinator, entry),
         AndroidTvAdbTemperatureSensor(coordinator, entry),
@@ -55,7 +54,20 @@ async def async_setup_entry(
         AndroidTvAdbLastWakeReasonSensor(coordinator, entry),
         AndroidTvAdbLastSleepReasonSensor(coordinator, entry),
     ]
+
+    hdmi_added = False
+    if coordinator.is_tv_panel:
+        entities.append(AndroidTvAdbHdmiInputSensor(coordinator, entry))
+        hdmi_added = True
+
     async_add_entities(entities)
+
+    @coordinator.async_add_listener
+    def _check_hdmi_sensor() -> None:
+        nonlocal hdmi_added
+        if not hdmi_added and coordinator.is_tv_panel:
+            hdmi_added = True
+            async_add_entities([AndroidTvAdbHdmiInputSensor(coordinator, entry)])
 
 
 class AndroidTvAdbCurrentAppSensor(AndroidTvAdbEntity, SensorEntity):
@@ -103,7 +115,19 @@ class AndroidTvAdbHdmiInputSensor(AndroidTvAdbEntity, SensorEntity):
         self._attr_unique_id = f"{entry.data[CONF_HOST]}_hdmi_input"
 
     @property
+    def entity_registry_enabled_default(self) -> bool:
+        """Only enable this sensor by default on physical TV panels with HDMI inputs."""
+        return self.coordinator.is_tv_panel
+
+    @property
+    def available(self) -> bool:
+        """Sensor is only available for devices that are actual TVs with HDMI inputs."""
+        return super().available and self.coordinator.is_tv_panel
+
+    @property
     def native_value(self) -> str | None:
+        if not self.coordinator.is_tv_panel:
+            return None
         if self.coordinator.data:
             return self.coordinator.data.get("hdmi_input")
         return None
