@@ -219,7 +219,10 @@ class AndroidTvAdbCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             from homeassistant.helpers import device_registry as dr
 
             dev_reg = dr.async_get(self.hass)
-            device = dev_reg.async_get_device(identifiers={(DOMAIN, self.host)})
+            if hasattr(dev_reg, "async_get_device_by_identifier"):
+                device = dev_reg.async_get_device_by_identifier((DOMAIN, self.host))
+            else:
+                device = dev_reg.async_get_device(identifiers={(DOMAIN, self.host)})
             if device:
                 props = self.device_properties
                 updates: dict[str, Any] = {}
