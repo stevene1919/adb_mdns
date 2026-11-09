@@ -52,16 +52,37 @@
     "step": {
       "init": {
         "title": "Android TV Options",
-        "description": "Configure polling intervals, power controls, and remote behavior.",
+        "description": "Choose a category to configure:",
+        "menu_options": {
+          "sources": "Sources & Input Settings",
+          "polling": "Polling & Telemetry Intervals",
+          "controls": "Remote & Power Controls"
+        }
+      },
+      "sources": {
+        "title": "Sources & Input Settings",
+        "description": "Configure hardware inputs and app catalog display in Home Assistant.",
         "data": {
-          "scan_interval": "Status Poll Interval (seconds)",
-          "health_interval": "Diagnostics & Health Poll Interval (seconds)",
-          "screencap_interval": "Live Screencap Artwork Interval (seconds, 0 to disable)",
-          "enable_wol": "Enable Wake-on-LAN Magic Packets on Turn On",
-          "enable_cec_names": "Query HDMI-CEC Connected Device Names",
           "include_apps_in_sources": "Include Applications in Sources Dropdown",
           "exclude_unnamed_apps": "Only Show Recognized Friendly Apps in Sources Dropdown",
           "include_launcher_in_sources": "Include Launcher / Home Screen in Sources Dropdown",
+          "enable_cec_names": "Query HDMI-CEC Connected Device Names"
+        }
+      },
+      "polling": {
+        "title": "Polling & Telemetry Intervals",
+        "description": "Adjust telemetry frequency and screen capture settings.",
+        "data": {
+          "scan_interval": "Status Poll Interval (seconds)",
+          "health_interval": "Diagnostics & Health Poll Interval (seconds)",
+          "screencap_interval": "Live Screencap Artwork Interval (seconds, 0 to disable)"
+        }
+      },
+      "controls": {
+        "title": "Remote & Power Controls",
+        "description": "Configure remote key timings, volume step fallbacks, and Wake-on-LAN.",
+        "data": {
+          "enable_wol": "Enable Wake-on-LAN Magic Packets on Turn On",
           "volume_step_fallback": "Verify Volume Level and Fallback to Key Events If Ignored",
           "key_delay": "Remote Key Delay (seconds)",
           "key_repeat": "Default Key Repeat Count"

@@ -26,19 +26,46 @@ def test_parse_key_sequence() -> None:
 
 @pytest.mark.anyio
 async def test_options_flow() -> None:
-    """Test options flow handler displays form and returns user inputs."""
+    """Test options flow handler displays menu and handles sub-steps."""
     entry = MagicMock()
     entry.options = {"scan_interval": 15, "enable_wol": True}
     flow = AndroidTvAdbOptionsFlowHandler(entry)
 
+    # 1. Menu step
     result = await flow.async_step_init()
-    assert result["type"] == "form"
+    assert result["type"] == "menu"
     assert result["step_id"] == "init"
+    assert "sources" in result["menu_options"]
+    assert "polling" in result["menu_options"]
+    assert "controls" in result["menu_options"]
 
-    save_result = await flow.async_step_init({"scan_interval": 20, "enable_wol": False})
-    assert save_result["type"] == "create_entry"
-    assert save_result["data"]["scan_interval"] == 20
-    assert save_result["data"]["enable_wol"] is False
+    # 2. Polling sub-step
+    poll_form = await flow.async_step_polling()
+    assert poll_form["type"] == "form"
+    assert poll_form["step_id"] == "polling"
+
+    poll_save = await flow.async_step_polling({"scan_interval": 20})
+    assert poll_save["type"] == "create_entry"
+    assert poll_save["data"]["scan_interval"] == 20
+    assert poll_save["data"]["enable_wol"] is True
+
+    # 3. Sources sub-step
+    src_form = await flow.async_step_sources()
+    assert src_form["type"] == "form"
+    assert src_form["step_id"] == "sources"
+
+    src_save = await flow.async_step_sources({"include_apps_in_sources": False})
+    assert src_save["type"] == "create_entry"
+    assert src_save["data"]["include_apps_in_sources"] is False
+
+    # 4. Controls sub-step
+    ctrl_form = await flow.async_step_controls()
+    assert ctrl_form["type"] == "form"
+    assert ctrl_form["step_id"] == "controls"
+
+    ctrl_save = await flow.async_step_controls({"key_delay": 0.5})
+    assert ctrl_save["type"] == "create_entry"
+    assert ctrl_save["data"]["key_delay"] == 0.5
 
 
 @pytest.mark.anyio
