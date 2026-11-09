@@ -48,8 +48,9 @@ Click the one-click button below to open this repository directly inside HACS:
 
 ### 3️⃣ Pair in Home Assistant
 1. In Home Assistant, go to **Settings** ➔ **Devices & Services** ➔ **Add Integration**.
-2. Select **ADB mDNS - Android Debug Bridge** (or click the auto-discovered notification).
-3. Enter the TV's IP address, the 6-digit PIN, and the temporary pairing port displayed on your screen.
+2. Search for and select **ADB mDNS - Android Debug Bridge**.
+3. Enter your TV's IP address. Home Assistant will automatically detect the active mDNS ports for you.
+4. Enter the 6-digit PIN shown on your TV screen (and verify the pre-filled pairing port) to complete pairing!
 
 > [!TIP]
 > **Need detailed step-by-step instructions?**  

@@ -15,6 +15,7 @@ from homeassistant.data_entry_flow import FlowResult
 from zeroconf.asyncio import AsyncServiceBrowser
 
 from .const import (
+    CONF_MAC,
     CONF_PAIRING_PORT,
     CONF_PIN,
     CONF_PRIVATE_KEY,
@@ -27,6 +28,7 @@ from .core import (
     pair_device,
 )
 from .options_flow import AndroidTvAdbOptionsFlowHandler
+from .tv import CMD_DEVICE_PROPERTIES, parse_device_properties
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -56,7 +58,7 @@ class AndroidTvAdbConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         """Create the options flow."""
         return AndroidTvAdbOptionsFlowHandler(config_entry)
 
-    async def _async_discover_mdns_ports(self, timeout: float = 1.8) -> None:
+    async def _async_discover_mdns_ports(self, timeout: float = 3.0) -> None:
         """Query mDNS for both _adb-tls-connect and _adb-tls-pairing ports for self.host."""
         if not self.host or not getattr(self, "hass", None):
             return
@@ -69,14 +71,14 @@ class AndroidTvAdbConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
             async def _inspect(service_type: str, name: str) -> None:
                 try:
-                    info = await aiozc.async_get_service_info(service_type, name)
+                    info = await aiozc.async_get_service_info(service_type, name, timeout=2000)
                     if not info or not info.port:
                         return
                     for ip in info.parsed_addresses():
                         if ip == self.host:
-                            if "pairing" in service_type.lower() and self.pairing_port <= 0:
+                            if "pairing" in service_type.lower():
                                 self.pairing_port = info.port
-                            elif "connect" in service_type.lower() and self.connect_port <= 0:
+                            elif "connect" in service_type.lower():
                                 self.connect_port = info.port
                             if self.pairing_port > 0 and self.connect_port > 0:
                                 done_event.set()
@@ -87,13 +89,7 @@ class AndroidTvAdbConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             def _on_change(zc: Any, service_type: str, name: str, state_change: Any, **kwargs: Any) -> None:
                 self.hass.loop.call_soon_threadsafe(lambda: self.hass.async_create_task(_inspect(service_type, name)))
 
-            services_to_query: list[str] = []
-            if self.pairing_port <= 0:
-                services_to_query.append(MDNS_PAIRING_TYPE)
-            if self.connect_port <= 0:
-                services_to_query.append(MDNS_CONNECT_TYPE)
-            if not services_to_query:
-                return
+            services_to_query: list[str] = [MDNS_PAIRING_TYPE, MDNS_CONNECT_TYPE]
 
             browser = AsyncServiceBrowser(aiozc.zeroconf, services_to_query, handlers=[_on_change])
             try:
@@ -106,57 +102,29 @@ class AndroidTvAdbConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             _LOGGER.debug("mDNS discovery during config flow failed for %s: %s", self.host, err)
 
     async def async_step_user(self, user_input: dict[str, Any] | None = None) -> FlowResult:
-        """Handle manual user setup."""
+        """Handle manual user setup (Step 1: IP Address)."""
         errors: dict[str, str] = {}
 
         if user_input is not None:
-            self.host = user_input[CONF_HOST].strip()
-            self.connect_port = user_input.get(CONF_PORT, 0)
-            self.pairing_port = user_input.get(CONF_PAIRING_PORT, 0)
+            raw_host = user_input[CONF_HOST].strip()
+            # Support IP:PORT string (e.g. copying directly from Android TV pairing modal)
+            if ":" in raw_host:
+                parts = raw_host.split(":", 1)
+                self.host = parts[0].strip()
+                if parts[1].strip().isdigit():
+                    self.pairing_port = int(parts[1].strip())
+            else:
+                self.host = raw_host
 
-            await self.async_set_unique_id(self.host)
-            updates: dict[str, Any] = {CONF_HOST: self.host}
-            if self.connect_port > 0:
-                updates[CONF_PORT] = self.connect_port
-            self._abort_if_unique_id_configured(updates=updates)
+            if not self.host:
+                errors[CONF_HOST] = "invalid_host"
+            else:
+                await self.async_set_unique_id(self.host)
+                self._abort_if_unique_id_configured()
+                return await self.async_step_pair()
 
-            return await self.async_step_pair()
-
-        schema = vol.Schema(
-            {
-                vol.Required(CONF_HOST): str,
-                vol.Optional(CONF_PAIRING_PORT, default=0): int,
-                vol.Optional(CONF_PORT, default=0): int,
-            }
-        )
-
+        schema = vol.Schema({vol.Required(CONF_HOST): str})
         return self.async_show_form(step_id="user", data_schema=schema, errors=errors)
-
-    async def async_step_zeroconf(self, discovery_info: zeroconf.ZeroconfServiceInfo) -> FlowResult:
-        """Handle discovery via mDNS / Zeroconf."""
-        self.host = discovery_info.host
-        _LOGGER.debug(
-            "Discovered ADB service over Zeroconf: %s (%s:%s)",
-            discovery_info.type,
-            self.host,
-            discovery_info.port,
-        )
-
-        service_type = discovery_info.type.lower()
-        if "pairing" in service_type:
-            self.pairing_port = discovery_info.port
-        elif "connect" in service_type:
-            self.connect_port = discovery_info.port
-
-        await self.async_set_unique_id(self.host)
-        updates: dict[str, Any] = {CONF_HOST: self.host}
-        if self.connect_port > 0:
-            updates[CONF_PORT] = self.connect_port
-        self._abort_if_unique_id_configured(updates=updates)
-
-        if hasattr(self, "context") and isinstance(self.context, dict):
-            self.context["title_placeholders"] = {"name": f"Android TV ({self.host})"}
-        return await self.async_step_pair()
 
     async def async_step_reauth(self, entry_data: dict[str, Any]) -> FlowResult:
         """Handle reauth initiation."""
@@ -167,13 +135,17 @@ class AndroidTvAdbConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def async_step_reauth_confirm(self, user_input: dict[str, Any] | None = None) -> FlowResult:
         """Confirm reauth with a fresh PIN."""
         errors: dict[str, str] = {}
+
+        if user_input is None and (self.pairing_port <= 0 or self.connect_port <= 0):
+            await self._async_discover_mdns_ports(timeout=2.5)
+
         if user_input is not None:
             pin = user_input[CONF_PIN].strip().replace(" ", "")
             pairing_port = user_input.get(CONF_PAIRING_PORT) or self.pairing_port
             connect_port = user_input.get(CONF_PORT) or self.connect_port
 
             if not pairing_port or not connect_port:
-                await self._async_discover_mdns_ports()
+                await self._async_discover_mdns_ports(timeout=2.5)
                 if not pairing_port:
                     pairing_port = self.pairing_port
                 if not connect_port:
@@ -196,6 +168,7 @@ class AndroidTvAdbConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     )
                     if not success:
                         errors["base"] = "pairing_failed"
+                        await self._async_discover_mdns_ports(timeout=2.0)
                     else:
                         if not connect_port:
                             await self._async_discover_mdns_ports(timeout=2.5)
@@ -217,6 +190,7 @@ class AndroidTvAdbConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 except Exception as err:
                     _LOGGER.exception("Reauth pairing failed: %s", err)
                     errors["base"] = "cannot_connect"
+                    await self._async_discover_mdns_ports(timeout=2.0)
 
         schema_fields = {
             vol.Required(CONF_PIN): str,
@@ -256,11 +230,11 @@ class AndroidTvAdbConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return self.async_show_form(step_id="reconfigure", data_schema=schema, errors=errors)
 
     async def async_step_pair(self, user_input: dict[str, Any] | None = None) -> FlowResult:
-        """Handle 6-digit PIN pairing step."""
+        """Handle 6-digit PIN pairing step (Step 2: PIN and Port confirmation)."""
         errors: dict[str, str] = {}
 
-        if user_input is None and (self.pairing_port <= 0 or self.connect_port <= 0):
-            await self._async_discover_mdns_ports()
+        if user_input is None:
+            await self._async_discover_mdns_ports(timeout=3.0)
 
         if user_input is not None:
             pin = user_input[CONF_PIN].strip().replace(" ", "")
@@ -268,7 +242,7 @@ class AndroidTvAdbConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             connect_port = user_input.get(CONF_PORT) or self.connect_port
 
             if not pairing_port or not connect_port:
-                await self._async_discover_mdns_ports()
+                await self._async_discover_mdns_ports(timeout=2.5)
                 if not pairing_port:
                     pairing_port = self.pairing_port
                 if not connect_port:
@@ -291,34 +265,49 @@ class AndroidTvAdbConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     )
                     if not success:
                         errors["base"] = "pairing_failed"
+                        await self._async_discover_mdns_ports(timeout=2.0)
                     else:
                         if not connect_port:
-                            await self._async_discover_mdns_ports(timeout=2.5)
+                            await self._async_discover_mdns_ports(timeout=3.0)
                             connect_port = self.connect_port
 
+                        device_props: dict[str, str] = {}
                         if connect_port:
                             client = AndroidTvAdbClient(self.host, connect_port, key)
                             try:
                                 await client.connect(timeout=8.0)
-                                mfg = await client.shell("getprop ro.product.manufacturer", timeout=5.0)
-                                mdl = await client.shell("getprop ro.product.model", timeout=5.0)
-                                if mfg and mfg.strip():
-                                    self.manufacturer = mfg.strip()
-                                if mdl and mdl.strip():
-                                    self.model = mdl.strip()
-                                    self.device_name = f"{self.manufacturer} {self.model}".strip()
+                                out = await client.shell(CMD_DEVICE_PROPERTIES, timeout=6.0)
+                                device_props = parse_device_properties(out, host=self.host)
+                                if device_props.get("name"):
+                                    self.device_name = device_props["name"]
+                                if device_props.get("manufacturer"):
+                                    self.manufacturer = device_props["manufacturer"]
+                                if device_props.get("model"):
+                                    self.model = device_props["model"]
                                 await client.disconnect()
                             except Exception as err:
                                 _LOGGER.debug("Could not fetch device properties immediately: %s", err)
 
+                        entry_data: dict[str, Any] = {
+                            CONF_HOST: self.host,
+                            CONF_PORT: connect_port,
+                            CONF_PRIVATE_KEY: pem,
+                            CONF_NAME: self.device_name,
+                        }
+                        if device_props.get("mac"):
+                            entry_data[CONF_MAC] = device_props["mac"]
+                        if device_props.get("sw_version"):
+                            entry_data["sw_version"] = device_props["sw_version"]
+                        if device_props.get("serialno"):
+                            entry_data["serialno"] = device_props["serialno"]
+                        if device_props.get("model"):
+                            entry_data["model"] = device_props["model"]
+                        if device_props.get("manufacturer"):
+                            entry_data["manufacturer"] = device_props["manufacturer"]
+
                         return self.async_create_entry(
                             title=self.device_name,
-                            data={
-                                CONF_HOST: self.host,
-                                CONF_PORT: connect_port,
-                                CONF_PRIVATE_KEY: pem,
-                                CONF_NAME: self.device_name,
-                            },
+                            data=entry_data,
                         )
 
                 except ValueError as err:
@@ -327,16 +316,17 @@ class AndroidTvAdbConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 except Exception as err:
                     _LOGGER.exception("Pairing failed with %s: %s", type(err).__name__, err)
                     errors["base"] = "cannot_connect"
+                    await self._async_discover_mdns_ports(timeout=2.0)
 
         schema_fields: dict[Any, Any] = {
             vol.Required(CONF_PIN): str,
         }
-        if self.pairing_port:
+        if self.pairing_port > 0:
             schema_fields[vol.Required(CONF_PAIRING_PORT, default=self.pairing_port)] = int
         else:
             schema_fields[vol.Required(CONF_PAIRING_PORT)] = int
 
-        if self.connect_port:
+        if self.connect_port > 0:
             schema_fields[vol.Optional(CONF_PORT, default=self.connect_port)] = int
         else:
             schema_fields[vol.Optional(CONF_PORT, default=0)] = int

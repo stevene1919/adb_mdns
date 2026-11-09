@@ -107,22 +107,46 @@ async def test_remote_send_command() -> None:
 
 
 @pytest.mark.anyio
-async def test_zeroconf_pairing_does_not_overwrite_connect_port() -> None:
-    """Test that zeroconf discovery of pairing port does not overwrite connect port with 0."""
+async def test_config_flow_user_step_transitions_to_pair() -> None:
+    """Test user step transitions to pair step and triggers mDNS discovery."""
     flow = AndroidTvAdbConfigFlow()
     flow.hass = MagicMock()
 
-    discovery_info = MagicMock()
-    discovery_info.host = "192.168.50.10"
-    discovery_info.port = 42181
-    discovery_info.type = "_adb-tls-pairing._tcp.local."
+    with (
+        patch.object(flow, "async_set_unique_id", new_callable=AsyncMock),
+        patch.object(flow, "_abort_if_unique_id_configured"),
+        patch.object(flow, "_async_discover_mdns_ports", new_callable=AsyncMock) as mock_discover,
+    ):
+        result = await flow.async_step_user({"host": "192.168.50.10"})
+        assert result["type"] == "form"
+        assert result["step_id"] == "pair"
+        assert flow.host == "192.168.50.10"
+        mock_discover.assert_called_once()
+
+
+@pytest.mark.anyio
+async def test_config_flow_user_step_ip_and_port_parsing() -> None:
+    """Test user step parses pasted IP:PORT string and sets pairing port."""
+    flow = AndroidTvAdbConfigFlow()
+    flow.hass = MagicMock()
 
     with (
         patch.object(flow, "async_set_unique_id", new_callable=AsyncMock),
-        patch.object(flow, "_abort_if_unique_id_configured") as mock_abort,
+        patch.object(flow, "_abort_if_unique_id_configured"),
+        patch.object(flow, "_async_discover_mdns_ports", new_callable=AsyncMock),
     ):
-        await flow.async_step_zeroconf(discovery_info)
-        # Should NOT contain port: 0 in updates
-        mock_abort.assert_called_once_with(updates={"host": "192.168.50.10"})
+        result = await flow.async_step_user({"host": "192.168.50.10:42181"})
+        assert result["type"] == "form"
+        assert result["step_id"] == "pair"
+        assert flow.host == "192.168.50.10"
         assert flow.pairing_port == 42181
-        assert flow.connect_port == 0
+
+
+@pytest.mark.anyio
+async def test_config_flow_user_step_empty_host() -> None:
+    """Test user step rejects empty host string."""
+    flow = AndroidTvAdbConfigFlow()
+    result = await flow.async_step_user({"host": "  "})
+    assert result["type"] == "form"
+    assert result["step_id"] == "user"
+    assert result["errors"] == {"host": "invalid_host"}

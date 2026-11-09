@@ -48,19 +48,22 @@ This guide walks you through pairing your Android TV, Google TV, or Android 11+ 
 
 ### Step 4: Add the Integration in Home Assistant
 1. In Home Assistant, navigate to **Settings** ➔ **Devices & Services** ➔ **Add Integration**.
-2. Search for **ADB mDNS - Android Debug Bridge** (or click the auto-discovered notification card if Zeroconf discovered your TV).
-3. Enter the TV details:
-   - **Host:** The TV's IP address (e.g., `192.168.50.10`).
-   - **Pairing Port:** The port displayed on the pairing dialog (e.g., `42181`).
-   - **PIN:** The 6-digit PIN displayed on your TV screen (e.g., `123456`).
-4. Click **Submit**.
+2. Search for and select **ADB mDNS - Android Debug Bridge**.
+3. **Step 1 (Target Device):** Enter the TV's IP address (e.g., `192.168.50.10`) or paste the `IP address & Port` line from the dialog, then click **Submit**.
+4. Home Assistant will query mDNS for your TV's live pairing port and connect port.
+5. **Step 2 (Pairing Code & Ports):**
+   - **PIN:** Enter the 6-digit PIN displayed on your TV screen (e.g., `123456`).
+   - **Pairing Port:** Pre-filled automatically via mDNS (confirm it matches the port on your TV dialog, or type it if across subnets/VLANs).
+   - **Connect Port:** Pre-filled automatically via mDNS (or left optional).
+6. Click **Submit**.
 
 ---
 
-### Step 5: Pairing Verification & Auto-Discovery
-1. Home Assistant will perform the cryptographic SPAKE2 key exchange over TLS 1.3, register its generated RSA client key with Android OS, and immediately discover the active connect port via mDNS (`_adb-tls-connect._tcp.local.`).
+### Step 5: Pairing Verification & Connection Setup
+1. Home Assistant performs the cryptographic SPAKE2 key exchange over TLS 1.3, registers its client key with Android OS, and connects to the active TLS port.
 2. The pairing dialog on your TV will automatically dismiss, and Home Assistant will appear under **Paired devices** on the TV screen.
-3. Assign your TV to an area in Home Assistant (e.g., *Living Room*) and click **Finish**.
+3. Home Assistant automatically queries hardware properties (friendly name, manufacturer, model, serial, and MAC address) and creates all media player, remote, and sensor entities.
+4. Assign your TV to an area in Home Assistant (e.g., *Living Room*) and click **Finish**.
 
 ---
 

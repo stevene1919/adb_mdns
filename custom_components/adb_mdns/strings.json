@@ -3,19 +3,17 @@
     "step": {
       "user": {
         "title": "Connect to Android TV",
-        "description": "Enter the IP address of your Android TV device. If you already know the wireless debugging connect or pairing ports, you can specify them.",
+        "description": "1. On your Android TV, open Settings > Developer options > Wireless debugging > 'Pair device with pairing code' so the pairing dialog is active.\n2. Enter the TV's IP address below (or paste the 'IP address & Port' from the dialog). Home Assistant will auto-detect the mDNS ports on the next step.",
         "data": {
-          "host": "IP Address",
-          "pairing_port": "Pairing Port (Optional)",
-          "port": "Connect Port (Optional)"
+          "host": "IP Address (e.g. 192.168.50.10)"
         }
       },
       "pair": {
         "title": "Pair with Android TV",
-        "description": "On your TV screen, go to Settings > Developer options > Wireless debugging > 'Pair device with pairing code'. Enter the 6-digit pairing code and the pairing port shown on the TV dialog.",
+        "description": "Enter the 6-digit pairing code shown on your TV screen. The pairing and connect ports below were auto-detected via mDNS (or can be adjusted if using custom routing).",
         "data": {
           "pin": "6-Digit Pairing Code",
-          "pairing_port": "Pairing Port (from TV dialog)",
+          "pairing_port": "Pairing Port",
           "port": "Connect Port (Optional)"
         }
       },
@@ -38,6 +36,7 @@
       }
     },
     "error": {
+      "invalid_host": "Please enter a valid IP address or host.",
       "invalid_pin": "Invalid pairing code. Make sure it contains exactly 6 digits.",
       "missing_pairing_port": "Pairing port is required for wireless pairing.",
       "pairing_failed": "Pairing rejected by device. Ensure the pairing screen is currently open on your TV.",
