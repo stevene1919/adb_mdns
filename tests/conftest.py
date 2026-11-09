@@ -349,7 +349,7 @@ if "homeassistant" not in sys.modules:
     # zeroconf
     comp_zeroconf = types.ModuleType("homeassistant.components.zeroconf")
 
-    async def async_get_async_zeroconf(hass):
+    def async_get_async_zeroconf(hass):
         return MagicMock(zeroconf=None)
 
     comp_zeroconf.async_get_async_zeroconf = async_get_async_zeroconf

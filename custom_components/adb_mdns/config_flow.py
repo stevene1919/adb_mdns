@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import inspect
 import logging
 from typing import Any
 
@@ -63,7 +64,9 @@ class AndroidTvAdbConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if not self.host or not getattr(self, "hass", None):
             return
         try:
-            aiozc = await zeroconf.async_get_async_zeroconf(self.hass)
+            aiozc = zeroconf.async_get_async_zeroconf(self.hass)
+            if inspect.isawaitable(aiozc):
+                aiozc = await aiozc
             if not aiozc or not getattr(aiozc, "zeroconf", None):
                 return
 

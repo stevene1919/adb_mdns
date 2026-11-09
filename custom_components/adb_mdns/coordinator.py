@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import inspect
 import logging
 import time
 from datetime import timedelta
@@ -263,7 +264,9 @@ class AndroidTvAdbCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         """Discover the active TLS connect port via mDNS (_adb-tls-connect._tcp.local.)."""
         _LOGGER.debug("Attempting to auto-discover TLS connect port for %s", self.host)
         try:
-            aiozc = await zeroconf.async_get_async_zeroconf(self.hass)
+            aiozc = zeroconf.async_get_async_zeroconf(self.hass)
+            if inspect.isawaitable(aiozc):
+                aiozc = await aiozc
             if not aiozc or not getattr(aiozc, "zeroconf", None):
                 return 0
 
@@ -341,7 +344,9 @@ class AndroidTvAdbCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             _LOGGER.debug("Initial setup device properties fetch deferred: %s", err)
 
         try:
-            aiozc = await zeroconf.async_get_async_zeroconf(self.hass)
+            aiozc = zeroconf.async_get_async_zeroconf(self.hass)
+            if inspect.isawaitable(aiozc):
+                aiozc = await aiozc
             if not aiozc or not getattr(aiozc, "zeroconf", None):
                 return
 
