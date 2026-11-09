@@ -3,16 +3,13 @@
   "name": "ADB mDNS - Android Debug Bridge",
   "codeowners": ["@stevene1919"],
   "config_flow": true,
+  "dependencies": [
+    "zeroconf"
+  ],
   "documentation": "https://github.com/stevene1919/adb_mdns",
   "integration_type": "device",
   "iot_class": "local_polling",
   "quality_scale": "bronze",
-  "requirements": [
-    "cryptography>=43.0.0",
-    "pyOpenSSL>=24.0.0"
-  ],
-  "dependencies": [
-    "zeroconf"
-  ],
+  "requirements": [],
   "version": "1.0.0"
 }

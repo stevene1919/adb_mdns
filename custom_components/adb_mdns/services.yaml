@@ -7,8 +7,6 @@ adb_command:
       domain:
         - media_player
         - remote
-    device:
-      integration: adb_mdns
   fields:
     command:
       name: Command
@@ -27,8 +25,6 @@ send_key:
       domain:
         - media_player
         - remote
-    device:
-      integration: adb_mdns
   fields:
     key:
       name: Key
@@ -68,8 +64,6 @@ send_key_sequence:
       domain:
         - media_player
         - remote
-    device:
-      integration: adb_mdns
   fields:
     key_sequence:
       name: Key Sequence
@@ -99,8 +93,6 @@ launch_app:
       domain:
         - media_player
         - remote
-    device:
-      integration: adb_mdns
   fields:
     app:
       name: App Name or Package
@@ -133,8 +125,6 @@ stop_app:
       domain:
         - media_player
         - remote
-    device:
-      integration: adb_mdns
   fields:
     app:
       name: App Name or Package
@@ -153,8 +143,6 @@ send_text_input:
       domain:
         - media_player
         - remote
-    device:
-      integration: adb_mdns
   fields:
     text:
       name: Text
@@ -180,8 +168,6 @@ search:
       domain:
         - media_player
         - remote
-    device:
-      integration: adb_mdns
   fields:
     query:
       name: Search Query
@@ -212,8 +198,6 @@ trim_caches:
       domain:
         - media_player
         - remote
-    device:
-      integration: adb_mdns
 
 start_screensaver:
   name: Start Screensaver
@@ -224,5 +208,3 @@ start_screensaver:
       domain:
         - media_player
         - remote
-    device:
-      integration: adb_mdns

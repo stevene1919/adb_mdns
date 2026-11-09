@@ -34,11 +34,15 @@ select = [
 ]
 ignore = [
     "E501",   # line too long
+    "E402",   # module level import not at top of file
+    "SIM105", # use contextlib.suppress
     "SIM108", # use ternary operator
     "SIM118", # use key in dict
     "RUF001", # ambiguous unicode characters in string
     "RUF002", # ambiguous unicode characters in docstring
     "RUF003", # ambiguous unicode characters in comment
+    "RUF022", # __all__ is not sorted
+    "RUF059", # unused unpacked variable
 ]
 
 [tool.ruff.lint.isort]

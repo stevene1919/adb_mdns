@@ -35,7 +35,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install pytest anyio pytest-asyncio pytest-homeassistant-custom-component cryptography pyOpenSSL voluptuous ruff
+          pip install pytest anyio pytest-asyncio pytest-homeassistant-custom-component cryptography pyOpenSSL voluptuous ruff zeroconf
 
       - name: Run Pytest Suite
         run: |

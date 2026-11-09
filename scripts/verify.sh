@@ -9,9 +9,11 @@ if command -v codespell &> /dev/null; then
   codespell --skip="./.git/*,./.pytest_cache/*,./.ruff_cache/*,*.png,*.pem,*.key" -L "hass,dpad,recents,ime"
 fi
 
-if command -v ruff &> /dev/null; then
-  echo "==> 🔍 Running Ruff linter..."
-  ruff check --select E,F,I,UP,SIM,RUF --ignore E501,E402,SIM105,RUF059,RUF022 .
+echo "==> 🔍 Running Ruff linter..."
+if [ -f "/home/steven/.venvs/androidtv_adb/bin/ruff" ]; then
+  /home/steven/.venvs/androidtv_adb/bin/ruff check .
+elif command -v ruff &> /dev/null; then
+  ruff check .
 fi
 
 echo "==> 🧪 Running Pytest suite..."
@@ -23,4 +25,11 @@ else
   PYTHONPATH="/home/steven/projects/homelab/homeassistant:$DIR" pytest -v
 fi
 
-echo "==> ✅ All local verification checks passed!"
+if command -v docker &> /dev/null; then
+  echo "==> 🏛️ Running official Home Assistant Hassfest validator..."
+  docker run --rm -v "$DIR"://github/workspace ghcr.io/home-assistant/hassfest
+  echo "==> ✅ All local verification and Hassfest checks passed!"
+else
+  echo "==> ⚠️  Hassfest checks skipped (docker not found)"
+  echo "==> ✅ Local verification passed (Hassfest checks skipped)"
+fi
