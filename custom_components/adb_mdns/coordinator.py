@@ -270,12 +270,15 @@ class AndroidTvAdbCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             discovered_event = asyncio.Event()
             found_port: list[int] = []
 
-            def on_service_change(zc: Any, service_type: str, name: str, state_change: Any, **kwargs: Any) -> None:
-                self.hass.loop.call_soon_threadsafe(
-                    lambda: self.hass.async_create_task(
-                        self._check_service(aiozc, service_type, name, found_port, discovered_event)
+            def on_service_change(*args: Any, **kwargs: Any) -> None:
+                st = kwargs.get("service_type") or (args[1] if len(args) > 1 else "")
+                nm = kwargs.get("name") or (args[2] if len(args) > 2 else "")
+                if st and nm:
+                    self.hass.loop.call_soon_threadsafe(
+                        lambda s=st, n=nm: self.hass.async_create_task(
+                            self._check_service(aiozc, s, n, found_port, discovered_event)
+                        )
                     )
-                )
 
             browser = AsyncServiceBrowser(
                 aiozc.zeroconf,
@@ -307,7 +310,7 @@ class AndroidTvAdbCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     ) -> None:
         """Inspect discovered service info to match host IP."""
         try:
-            info = await aiozc.async_get_service_info(service_type, name)
+            info = await aiozc.async_get_service_info(service_type, name, timeout=2000)
             if info and info.parsed_addresses():
                 for ip in info.parsed_addresses():
                     if ip == self.host and info.port:
@@ -342,10 +345,13 @@ class AndroidTvAdbCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             if not aiozc or not getattr(aiozc, "zeroconf", None):
                 return
 
-            def service_updated(zc: Any, service_type: str, name: str, state_change: Any, **kwargs: Any) -> None:
-                self.hass.loop.call_soon_threadsafe(
-                    lambda: self.hass.async_create_task(self._handle_zeroconf_update(aiozc, service_type, name))
-                )
+            def service_updated(*args: Any, **kwargs: Any) -> None:
+                st = kwargs.get("service_type") or (args[1] if len(args) > 1 else "")
+                nm = kwargs.get("name") or (args[2] if len(args) > 2 else "")
+                if st and nm:
+                    self.hass.loop.call_soon_threadsafe(
+                        lambda s=st, n=nm: self.hass.async_create_task(self._handle_zeroconf_update(aiozc, s, n))
+                    )
 
             self._browser = AsyncServiceBrowser(
                 aiozc.zeroconf,
@@ -369,7 +375,7 @@ class AndroidTvAdbCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     async def _handle_zeroconf_update(self, aiozc: Any, service_type: str, name: str) -> None:
         """Handle incoming Zeroconf record update."""
         try:
-            info = await aiozc.async_get_service_info(service_type, name)
+            info = await aiozc.async_get_service_info(service_type, name, timeout=2000)
             if info and info.parsed_addresses():
                 for ip in info.parsed_addresses():
                     if ip == self.host and info.port:

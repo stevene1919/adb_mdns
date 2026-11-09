@@ -86,8 +86,13 @@ class AndroidTvAdbConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 except Exception:
                     pass
 
-            def _on_change(zc: Any, service_type: str, name: str, state_change: Any, **kwargs: Any) -> None:
-                self.hass.loop.call_soon_threadsafe(lambda: self.hass.async_create_task(_inspect(service_type, name)))
+            def _on_change(*args: Any, **kwargs: Any) -> None:
+                st = kwargs.get("service_type") or (args[1] if len(args) > 1 else "")
+                nm = kwargs.get("name") or (args[2] if len(args) > 2 else "")
+                if st and nm:
+                    self.hass.loop.call_soon_threadsafe(
+                        lambda s=st, n=nm: self.hass.async_create_task(_inspect(s, n))
+                    )
 
             services_to_query: list[str] = [MDNS_PAIRING_TYPE, MDNS_CONNECT_TYPE]
 
