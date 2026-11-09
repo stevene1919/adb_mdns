@@ -29,6 +29,10 @@ CONF_KEY_DELAY = "key_delay"
 CONF_KEY_REPEAT = "key_repeat"
 CONF_VOLUME_STEP_FALLBACK = "volume_step_fallback"
 
+# mDNS Service Types
+MDNS_CONNECT_TYPE = "_adb-tls-connect._tcp.local."
+MDNS_PAIRING_TYPE = "_adb-tls-pairing._tcp.local."
+
 # Defaults
 DEFAULT_NAME = "Android TV"
 DEFAULT_SCAN_INTERVAL = 10
@@ -172,6 +176,8 @@ __all__ = [
     "KEY_VOLUME_MUTE",
     "KEY_VOLUME_UP",
     "KEY_WAKEUP",
+    "MDNS_CONNECT_TYPE",
+    "MDNS_PAIRING_TYPE",
     "SERVICE_ADB_COMMAND",
     "SERVICE_LAUNCH_APP",
     "SERVICE_SEARCH",

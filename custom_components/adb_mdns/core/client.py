@@ -4,15 +4,18 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import os
 import ssl
-import tempfile
 import time
 
-from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 
-from .crypto import generate_self_signed_cert
+from .crypto import build_client_ssl_context
+from .exceptions import (
+    AdbAuthError,
+    AdbConnectionError,
+    AdbError,
+    AdbTimeoutError,
+)
 from .protocol import (
     A_VERSION,
     AUTH,
@@ -27,44 +30,15 @@ from .protocol import (
     decode_header,
     encode_packet,
 )
+from .stream import _AdbStream
 
 _LOGGER = logging.getLogger(__name__)
-
-
-class AdbError(Exception):
-    """Base error for ADB communication."""
-
-
-class AdbConnectionError(AdbError):
-    """Raised when connection cannot be established or is broken."""
-
-
-class AdbAuthError(AdbError):
-    """Raised when the device refuses the client certificate or is not paired."""
-
-
-class AdbTimeoutError(AdbError):
-    """Raised when an operation times out."""
-
-
-class _AdbStream:
-    def __init__(self, local_id: int) -> None:
-        self.local_id = local_id
-        self.remote_id: int | None = None
-        self.opened = asyncio.Event()
-        self.done = asyncio.Event()
-        self.queue: asyncio.Queue[bytes] = asyncio.Queue()
 
 
 class AndroidTvAdbClient:
     """Async ADB Client for Android TV over TLS 1.3."""
 
-    def __init__(
-        self,
-        host: str,
-        port: int,
-        key: rsa.RSAPrivateKey,
-    ) -> None:
+    def __init__(self, host: str, port: int, key: rsa.RSAPrivateKey) -> None:
         self.host = host
         self.port = port
         self.key = key
@@ -96,37 +70,7 @@ class AndroidTvAdbClient:
 
     def _build_ssl_context(self) -> ssl.SSLContext:
         """Build an SSLContext configured with our client certificate and private key."""
-        cert = generate_self_signed_cert(self.key)
-        cert_pem = cert.public_bytes(serialization.Encoding.PEM)
-        key_pem = self.key.private_bytes(
-            encoding=serialization.Encoding.PEM,
-            format=serialization.PrivateFormat.PKCS8,
-            encryption_algorithm=serialization.NoEncryption(),
-        )
-
-        with tempfile.NamedTemporaryFile("wb", delete=False) as f_cert:
-            f_cert.write(cert_pem)
-            cert_path = f_cert.name
-
-        with tempfile.NamedTemporaryFile("wb", delete=False) as f_key:
-            f_key.write(key_pem)
-            key_path = f_key.name
-
-        try:
-            ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
-            ctx.check_hostname = False
-            ctx.verify_mode = ssl.CERT_NONE
-            ctx.load_cert_chain(certfile=cert_path, keyfile=key_path)
-            return ctx
-        finally:
-            try:
-                os.unlink(cert_path)
-            except Exception:
-                pass
-            try:
-                os.unlink(key_path)
-            except Exception:
-                pass
+        return build_client_ssl_context(self.key)
 
     async def connect(self, timeout: float = 10.0) -> None:
         """Connect to the device, execute STLS upgrade and complete ADB handshake."""
@@ -145,22 +89,15 @@ class AndroidTvAdbClient:
         try:
             # 1. Send plain initial CNXN packet
             await self._send_packet(CNXN, A_VERSION, MAX_PAYLOAD, b"host::\x00")
-
             # 2. Expect STLS packet
             msg = await self._read_direct_packet(timeout=timeout)
             if msg.cmd == STLS:
                 _LOGGER.debug("Received STLS negotiation from %s:%s, upgrading to TLS 1.3", self.host, self.port)
-                # Reply with STLS ack
                 await self._send_packet(STLS, msg.arg0, 0, b"")
-
                 if self._ssl_ctx is None:
                     loop = asyncio.get_running_loop()
                     self._ssl_ctx = await loop.run_in_executor(None, self._build_ssl_context)
-
-                # Upgrade socket to TLS
                 await self._writer.start_tls(self._ssl_ctx)
-
-                # Read CNXN inside TLS
                 try:
                     msg = await self._read_direct_packet(timeout=4.0)
                 except (TimeoutError, AdbTimeoutError):
@@ -179,8 +116,6 @@ class AndroidTvAdbClient:
             _LOGGER.info(
                 "ADB connection established to %s:%s (max_payload=%s)", self.host, self.port, self._max_payload
             )
-
-            # Start background reader pump
             self._reader_task = asyncio.create_task(self._reader_loop())
 
         except Exception:
@@ -352,3 +287,12 @@ class AndroidTvAdbClient:
             return "1" in res
         except Exception:
             return False
+
+
+__all__ = [
+    "AdbAuthError",
+    "AdbConnectionError",
+    "AdbError",
+    "AdbTimeoutError",
+    "AndroidTvAdbClient",
+]

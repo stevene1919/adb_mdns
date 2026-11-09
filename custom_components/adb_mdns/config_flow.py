@@ -3,17 +3,14 @@
 from __future__ import annotations
 
 import asyncio
-import inspect
 import logging
 from typing import Any
 
 import voluptuous as vol
 from homeassistant import config_entries
-from homeassistant.components import zeroconf
 from homeassistant.const import CONF_HOST, CONF_NAME, CONF_PORT
 from homeassistant.core import callback
 from homeassistant.data_entry_flow import FlowResult
-from zeroconf.asyncio import AsyncServiceBrowser
 
 from .const import (
     CONF_PAIRING_PORT,
@@ -26,6 +23,7 @@ from .core import (
     generate_keypair,
     pair_device,
 )
+from .flow_helpers import async_discover_mdns_ports
 from .options_flow import AndroidTvAdbOptionsFlowHandler
 
 _LOGGER = logging.getLogger(__name__)
@@ -60,51 +58,11 @@ class AndroidTvAdbConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         """Query mDNS for both _adb-tls-connect and _adb-tls-pairing ports for self.host."""
         if not self.host or not getattr(self, "hass", None):
             return
-        try:
-            aiozc = zeroconf.async_get_async_zeroconf(self.hass)
-            if inspect.isawaitable(aiozc):
-                aiozc = await aiozc
-            if not aiozc or not getattr(aiozc, "zeroconf", None):
-                return
-
-            done_event = asyncio.Event()
-
-            async def _inspect(service_type: str, name: str) -> None:
-                try:
-                    info = await aiozc.async_get_service_info(service_type, name, timeout=2000)
-                    if not info or not info.port:
-                        return
-                    for ip in info.parsed_addresses():
-                        if ip == self.host:
-                            if "pairing" in service_type.lower():
-                                self.pairing_port = info.port
-                            elif "connect" in service_type.lower():
-                                self.connect_port = info.port
-                            if self.pairing_port > 0 and self.connect_port > 0:
-                                done_event.set()
-                            return
-                except Exception:
-                    pass
-
-            def _on_change(*args: Any, **kwargs: Any) -> None:
-                st = kwargs.get("service_type") or (args[1] if len(args) > 1 else "")
-                nm = kwargs.get("name") or (args[2] if len(args) > 2 else "")
-                if st and nm:
-                    self.hass.loop.call_soon_threadsafe(
-                        lambda s=st, n=nm: self.hass.async_create_task(_inspect(s, n))
-                    )
-
-            services_to_query: list[str] = [MDNS_PAIRING_TYPE, MDNS_CONNECT_TYPE]
-
-            browser = AsyncServiceBrowser(aiozc.zeroconf, services_to_query, handlers=[_on_change])
-            try:
-                await asyncio.wait_for(done_event.wait(), timeout=timeout)
-            except TimeoutError:
-                pass
-            finally:
-                await browser.async_cancel()
-        except Exception as err:
-            _LOGGER.debug("mDNS discovery during config flow failed for %s: %s", self.host, err)
+        p_port, c_port = await async_discover_mdns_ports(self.hass, self.host, timeout=timeout)
+        if p_port > 0:
+            self.pairing_port = p_port
+        if c_port > 0:
+            self.connect_port = c_port
 
     async def async_step_user(self, user_input: dict[str, Any] | None = None) -> FlowResult:
         """Handle manual user setup (Step 1: IP Address)."""

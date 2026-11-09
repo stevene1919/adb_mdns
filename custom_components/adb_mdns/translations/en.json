@@ -141,6 +141,9 @@
       },
       "hdmi_cec_auto_off": {
         "name": "HDMI-CEC Auto Device Off"
+      },
+      "debug_logging": {
+        "name": "Debug Logging"
       }
     }
   },

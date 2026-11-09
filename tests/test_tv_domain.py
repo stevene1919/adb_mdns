@@ -193,13 +193,24 @@ def test_parse_media_sessions_and_position() -> None:
 
 
 def test_parse_audio() -> None:
-    """Test dumpsys audio STREAM_MUSIC parsing."""
+    """Test dumpsys audio STREAM_MUSIC parsing and friendly device names."""
     sample = "- STREAM_MUSIC:\n   Muted: false\n   Max: 25\n   Devices: hdmi_arc,speaker\n   (hdmi_arc): 18\n"
     audio = parse_audio(sample)
     assert audio.max_volume == 25
     assert audio.muted is False
     assert audio.volume == 18
     assert audio.output_name == "HDMI ARC"
+
+    # Android hex bitmask device strings e.g. hdmi(400) on Chromecast
+    sample_hdmi = "- STREAM_MUSIC:\n   Devices: hdmi(400)\n   (hdmi): 15\n"
+    audio_hdmi = parse_audio(sample_hdmi)
+    assert audio_hdmi.output_name == "HDMI"
+
+    sample_speaker = "- STREAM_MUSIC:\n   Devices: speaker(2)\n"
+    assert parse_audio(sample_speaker).output_name == "TV Speaker"
+
+    sample_bt = "- STREAM_MUSIC:\n   Devices: bt_a2dp(80)\n"
+    assert parse_audio(sample_bt).output_name == "Bluetooth"
 
 
 def test_parse_volume_get() -> None:

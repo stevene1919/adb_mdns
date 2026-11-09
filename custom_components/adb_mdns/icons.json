@@ -1,4 +1,11 @@
 {
+  "entity": {
+    "switch": {
+      "debug_logging": {
+        "default": "mdi:bug"
+      }
+    }
+  },
   "services": {
     "adb_command": {
       "service": "mdi:console"

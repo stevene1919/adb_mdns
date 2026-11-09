@@ -7,7 +7,10 @@ from __future__ import annotations
 
 import base64
 import datetime
+import os
+import ssl
 import struct
+import tempfile
 
 from cryptography import x509
 from cryptography.hazmat.primitives import hashes, serialization
@@ -83,3 +86,39 @@ def generate_self_signed_cert(
         .sign(key, hashes.SHA256())
     )
     return cert
+
+
+def build_client_ssl_context(key: rsa.RSAPrivateKey) -> ssl.SSLContext:
+    """Build an SSLContext configured with our client certificate and private key."""
+    cert = generate_self_signed_cert(key)
+    cert_pem = cert.public_bytes(serialization.Encoding.PEM)
+    key_pem = key.private_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PrivateFormat.PKCS8,
+        encryption_algorithm=serialization.NoEncryption(),
+    )
+
+    with tempfile.NamedTemporaryFile("wb", delete=False) as f_cert:
+        f_cert.write(cert_pem)
+        cert_path = f_cert.name
+
+    with tempfile.NamedTemporaryFile("wb", delete=False) as f_key:
+        f_key.write(key_pem)
+        key_path = f_key.name
+
+    try:
+        ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
+        ctx.load_cert_chain(certfile=cert_path, keyfile=key_path)
+        return ctx
+    finally:
+        try:
+            os.unlink(cert_path)
+        except Exception:
+            pass
+        try:
+            os.unlink(key_path)
+        except Exception:
+            pass
+

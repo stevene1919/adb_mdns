@@ -34,6 +34,7 @@ async def async_setup_entry(
             AndroidTvAdbUiAnimationsSwitch(coordinator, entry),
             AndroidTvAdbScreensaverSwitch(coordinator, entry),
             AndroidTvAdbHdmiCecAutoOffSwitch(coordinator, entry),
+            AndroidTvAdbDebugLoggingSwitch(coordinator, entry),
         ]
     )
 
@@ -113,3 +114,37 @@ class AndroidTvAdbHdmiCecAutoOffSwitch(AndroidTvAdbEntity, SwitchEntity):
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         await self.coordinator.async_set_setting("global", "hdmi_control_auto_device_off_enabled", 0)
+
+
+class AndroidTvAdbDebugLoggingSwitch(AndroidTvAdbEntity, SwitchEntity):
+    """Switch to dynamically toggle verbose debug logging in Home Assistant runtime."""
+
+    _attr_has_entity_name = True
+    _attr_translation_key = "debug_logging"
+    _attr_icon = "mdi:bug"
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+    _attr_entity_registry_enabled_default = False
+
+    def __init__(self, coordinator: AndroidTvAdbCoordinator, entry: ConfigEntry) -> None:
+        super().__init__(coordinator, entry)
+        self._attr_unique_id = f"{entry.data[CONF_HOST]}_debug_logging"
+
+    @property
+    def is_on(self) -> bool:
+        """Return True if debug logging is enabled for this integration."""
+        return logging.getLogger("custom_components.adb_mdns").level == logging.DEBUG
+
+    async def async_turn_on(self, **kwargs: Any) -> None:
+        """Enable debug logging."""
+        logging.getLogger("custom_components.adb_mdns").setLevel(logging.DEBUG)
+        _LOGGER.info("Debug logging enabled for custom_components.adb_mdns")
+        if getattr(self, "hass", None) is not None:
+            self.async_write_ha_state()
+
+    async def async_turn_off(self, **kwargs: Any) -> None:
+        """Disable debug logging."""
+        logging.getLogger("custom_components.adb_mdns").setLevel(logging.NOTSET)
+        _LOGGER.info("Debug logging disabled for custom_components.adb_mdns")
+        if getattr(self, "hass", None) is not None:
+            self.async_write_ha_state()
+

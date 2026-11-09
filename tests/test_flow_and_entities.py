@@ -202,3 +202,38 @@ async def test_is_tv_panel_and_hdmi_sensor_gating() -> None:
         lambda entities: added_tv_entities.extend(entities),
     )
     assert any(isinstance(e, AndroidTvAdbHdmiInputSensor) for e in added_tv_entities)
+
+
+@pytest.mark.anyio
+async def test_debug_logging_switch() -> None:
+    """Test dynamic debug logging switch toggles log level."""
+    from custom_components.adb_mdns.switch import (
+        AndroidTvAdbDebugLoggingSwitch,
+        async_setup_entry as async_setup_switch_entry,
+    )
+
+    hass = MagicMock()
+    entry = MagicMock()
+    entry.data = {CONF_HOST: "192.168.1.50", CONF_PORT: 5555}
+    entry.entry_id = "switch_test_123"
+    client = MagicMock()
+    coord = AndroidTvAdbCoordinator(hass, entry, client)
+    entry.runtime_data = coord
+
+    added_switches: list = []
+    await async_setup_switch_entry(
+        hass,
+        entry,
+        lambda entities: added_switches.extend(entities),
+    )
+    debug_sw = next(e for e in added_switches if isinstance(e, AndroidTvAdbDebugLoggingSwitch))
+    assert debug_sw.entity_registry_enabled_default is False
+
+    # Turn on debug logging
+    await debug_sw.async_turn_on()
+    assert debug_sw.is_on is True
+
+    # Turn off debug logging
+    await debug_sw.async_turn_off()
+    assert debug_sw.is_on is False
+
