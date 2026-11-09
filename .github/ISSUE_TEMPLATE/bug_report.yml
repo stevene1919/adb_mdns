@@ -1,0 +1,84 @@
+name: "🐛 Bug Report"
+description: "Report an issue, defect, or unexpected behavior with ADB mDNS"
+title: "[BUG]: "
+labels: ["bug"]
+body:
+  - type: checkboxes
+    id: prerequisites
+    attributes:
+      label: "Prerequisites & Health Checks"
+      description: "Please confirm the following baseline checks before submitting:"
+      options:
+        - label: "The Android TV / device is powered ON and connected to the same local network / subnet as Home Assistant."
+          required: true
+        - label: "Wireless debugging is enabled in Developer options, and the device is running Android 11 (API 30) or newer."
+          required: true
+        - label: "Port isolation / client isolation is disabled on your router / Wi-Fi AP between Home Assistant and the TV."
+          required: true
+        - label: "I have reviewed docs/troubleshooting.md and restarted Home Assistant."
+          required: true
+
+  - type: input
+    id: integration_version
+    attributes:
+      label: "Integration Version"
+      description: "Exact version installed (check in HACS → ADB mDNS or manifest.json)."
+      placeholder: "e.g. v1.0.0"
+    validations:
+      required: true
+
+  - type: input
+    id: ha_version
+    attributes:
+      label: "Home Assistant Core Version"
+      description: "Your Home Assistant version (Settings → About)."
+      placeholder: "e.g. 2026.2.3"
+    validations:
+      required: true
+
+  - type: input
+    id: device_brand
+    attributes:
+      label: "Device Brand & Model"
+      description: "Device brand and hardware model."
+      placeholder: "e.g. Google Chromecast with Google TV 4K, NVIDIA Shield TV Pro, Sony Bravia A80K"
+    validations:
+      required: true
+
+  - type: input
+    id: android_version
+    attributes:
+      label: "Android TV OS Version & Build"
+      description: "Android OS version and build string (Settings → System → About)."
+      placeholder: "e.g. Android TV OS 14 (Build UTT3.240618.001)"
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: "Describe the Bug"
+      description: "A clear and concise description of what the issue is."
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: "Steps to Reproduce"
+      description: "Step-by-step actions that trigger the issue."
+      placeholder: |
+        1. Go to '...'
+        2. Click on '....'
+        3. See error
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: "Home Assistant Logs / Tracebacks"
+      description: "Paste relevant log entries or tracebacks from Settings → System → Logs."
+      render: shell
+    validations:
+      required: false
