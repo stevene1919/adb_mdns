@@ -135,6 +135,12 @@ data:
 
 ---
 
+## 🔗 Related Integrations
+
+- 📺 **[Hisense VIDAA](https://github.com/stevene1919/hisense_vidaa)** — Fast, zero-cloud local MQTT SSL control for all smart TV brands running VIDAA OS (Hisense, Toshiba, and more).
+
+---
+
 ## ☕ Support the Project
 
 If this integration makes your smart home better or saved you hours of troubleshooting, consider supporting continued maintenance and development:
