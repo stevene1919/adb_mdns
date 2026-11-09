@@ -1,0 +1,159 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect to Android TV",
+        "description": "Enter the IP address of your Android TV device. If you already know the wireless debugging connect or pairing ports, you can specify them.",
+        "data": {
+          "host": "IP Address",
+          "pairing_port": "Pairing Port (Optional)",
+          "port": "Connect Port (Optional)"
+        }
+      },
+      "pair": {
+        "title": "Pair with Android TV",
+        "description": "On your TV screen, go to Settings > Developer options > Wireless debugging > 'Pair device with pairing code'. Enter the 6-digit pairing code and the pairing port shown on the TV dialog.",
+        "data": {
+          "pin": "6-Digit Pairing Code",
+          "pairing_port": "Pairing Port (from TV dialog)",
+          "port": "Connect Port (Optional)"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Re-pair Android TV",
+        "description": "The ADB authorization key was revoked or expired. Open Wireless debugging > 'Pair device with pairing code' on your TV and enter the new PIN and pairing port.",
+        "data": {
+          "pin": "6-Digit Pairing Code",
+          "pairing_port": "Pairing Port",
+          "port": "Connect Port (Optional)"
+        }
+      },
+      "reconfigure": {
+        "title": "Reconfigure Android TV",
+        "description": "Update the network address or connect port for this Android TV.",
+        "data": {
+          "host": "IP Address",
+          "port": "Connect Port"
+        }
+      }
+    },
+    "error": {
+      "invalid_pin": "Invalid pairing code. Make sure it contains exactly 6 digits.",
+      "missing_pairing_port": "Pairing port is required for wireless pairing.",
+      "pairing_failed": "Pairing rejected by device. Ensure the pairing screen is currently open on your TV.",
+      "cannot_connect": "Could not connect to the device over the network."
+    },
+    "abort": {
+      "already_configured": "This Android TV device is already configured.",
+      "reauth_successful": "Re-pairing successful! Connection restored.",
+      "reconfigure_successful": "Reconfiguration successful."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Android TV Options",
+        "description": "Configure polling intervals, power controls, and remote behavior.",
+        "data": {
+          "scan_interval": "Status Poll Interval (seconds)",
+          "health_interval": "Diagnostics & Health Poll Interval (seconds)",
+          "screencap_interval": "Live Screencap Artwork Interval (seconds, 0 to disable)",
+          "enable_wol": "Enable Wake-on-LAN Magic Packets on Turn On",
+          "enable_cec_names": "Query HDMI-CEC Connected Device Names",
+          "exclude_unnamed_apps": "Only Show Recognized Friendly Apps in Sources Dropdown",
+          "include_launcher_in_sources": "Include Launcher / Home Screen in Sources Dropdown",
+          "volume_step_fallback": "Verify Volume Level and Fallback to Key Events If Ignored",
+          "key_delay": "Remote Key Delay (seconds)",
+          "key_repeat": "Default Key Repeat Count"
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "current_app": {
+        "name": "Current App"
+      },
+      "hdmi_input": {
+        "name": "HDMI Input"
+      },
+      "audio_output": {
+        "name": "Audio Output"
+      },
+      "session_status": {
+        "name": "Session Status"
+      },
+      "temperature": {
+        "name": "Temperature"
+      },
+      "memory_usage": {
+        "name": "Memory Usage"
+      },
+      "memory_available": {
+        "name": "Memory Available"
+      },
+      "storage_available": {
+        "name": "Storage Available"
+      },
+      "cpu_load": {
+        "name": "CPU Load"
+      },
+      "open_apps": {
+        "name": "Open Apps"
+      },
+      "bluetooth_devices": {
+        "name": "Bluetooth Devices"
+      },
+      "last_wake_reason": {
+        "name": "Last Wake Reason"
+      },
+      "last_sleep_reason": {
+        "name": "Last Sleep Reason"
+      }
+    },
+    "binary_sensor": {
+      "adb_connected": {
+        "name": "ADB Connected"
+      },
+      "in_use": {
+        "name": "In Use"
+      },
+      "keyboard_active": {
+        "name": "Keyboard Active"
+      }
+    },
+    "button": {
+      "restart": {
+        "name": "Restart"
+      },
+      "trim_caches": {
+        "name": "Trim App Caches"
+      },
+      "start_screensaver": {
+        "name": "Start Screensaver"
+      }
+    },
+    "switch": {
+      "ui_animations": {
+        "name": "UI Animations"
+      },
+      "screensaver_enabled": {
+        "name": "Screensaver Enabled"
+      },
+      "hdmi_cec_auto_off": {
+        "name": "HDMI-CEC Auto Device Off"
+      }
+    }
+  },
+  "exceptions": {
+    "no_target_device": {
+      "message": "No matching Android TV was found for the specified target."
+    },
+    "ambiguous_target": {
+      "message": "Multiple Android TVs are configured. Please specify a target TV, or use 'all' to target every TV."
+    },
+    "unknown_key": {
+      "message": "Unknown keycode or key alias."
+    }
+  }
+}

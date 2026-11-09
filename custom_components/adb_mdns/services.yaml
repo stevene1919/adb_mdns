@@ -1,0 +1,228 @@
+adb_command:
+  name: ADB Command
+  description: Execute an arbitrary ADB shell command on the Android TV device.
+  target:
+    entity:
+      integration: adb_mdns
+      domain:
+        - media_player
+        - remote
+    device:
+      integration: adb_mdns
+  fields:
+    command:
+      name: Command
+      description: The ADB shell command or named key to execute (e.g. 'input keyevent 26', 'dumpsys power', 'HOME', 'BACK').
+      required: true
+      example: "dumpsys power"
+      selector:
+        text:
+
+send_key:
+  name: Send Key
+  description: Send a named key or numeric keycode to the Android TV.
+  target:
+    entity:
+      integration: adb_mdns
+      domain:
+        - media_player
+        - remote
+    device:
+      integration: adb_mdns
+  fields:
+    key:
+      name: Key
+      description: Key name (e.g. 'HOME', 'BACK', 'CENTER', 'VOLUME_UP', 'HDMI1', 'YOUTUBE') or numeric keycode.
+      required: true
+      example: "HOME"
+      selector:
+        text:
+    num_repeats:
+      name: Number of repeats
+      description: Number of times to send the key.
+      required: false
+      default: 1
+      selector:
+        number:
+          min: 1
+          max: 10
+          mode: box
+    delay_secs:
+      name: Delay seconds
+      description: Delay between repeat key presses.
+      required: false
+      default: 0.2
+      selector:
+        number:
+          min: 0.05
+          max: 2.0
+          step: 0.05
+          mode: box
+
+send_key_sequence:
+  name: Send Key Sequence
+  description: Send a sequence of keys to navigate menus or execute multi-step macros.
+  target:
+    entity:
+      integration: adb_mdns
+      domain:
+        - media_player
+        - remote
+    device:
+      integration: adb_mdns
+  fields:
+    key_sequence:
+      name: Key Sequence
+      description: Comma-separated list or JSON array of key names/codes (e.g. 'HOME, DOWN, DOWN, CENTER').
+      required: true
+      example: "HOME, DOWN, CENTER"
+      selector:
+        text:
+    delay_secs:
+      name: Delay seconds
+      description: Delay between successive key presses.
+      required: false
+      default: 0.2
+      selector:
+        number:
+          min: 0.05
+          max: 2.0
+          step: 0.05
+          mode: box
+
+launch_app:
+  name: Launch App
+  description: Launch an installed application by friendly name, package ID, or deep-link URL.
+  target:
+    entity:
+      integration: adb_mdns
+      domain:
+        - media_player
+        - remote
+    device:
+      integration: adb_mdns
+  fields:
+    app:
+      name: App Name or Package
+      description: Friendly application name (e.g. 'Netflix', 'YouTube', 'Plex') or Android package ID.
+      required: false
+      example: "YouTube"
+      selector:
+        text:
+    app_id:
+      name: Package ID
+      description: Exact Android package ID (e.g. 'com.google.android.youtube.tv').
+      required: false
+      example: "com.google.android.youtube.tv"
+      selector:
+        text:
+    url:
+      name: Deep-link URL
+      description: Optional URI/intent URL to open inside the app.
+      required: false
+      example: "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+      selector:
+        text:
+
+stop_app:
+  name: Stop App
+  description: Force stop an application and remove it from the recent tasks stack.
+  target:
+    entity:
+      integration: adb_mdns
+      domain:
+        - media_player
+        - remote
+    device:
+      integration: adb_mdns
+  fields:
+    app:
+      name: App Name or Package
+      description: Friendly name or package ID of the application to close.
+      required: true
+      example: "com.netflix.ninja"
+      selector:
+        text:
+
+send_text_input:
+  name: Send Text Input
+  description: Inject text directly into the currently focused search or input field.
+  target:
+    entity:
+      integration: adb_mdns
+      domain:
+        - media_player
+        - remote
+    device:
+      integration: adb_mdns
+  fields:
+    text:
+      name: Text
+      description: The text string to type.
+      required: true
+      example: "Inception 4K"
+      selector:
+        text:
+    submit:
+      name: Submit / Enter
+      description: Whether to press Enter / Submit after typing the text.
+      required: false
+      default: false
+      selector:
+        boolean:
+
+search:
+  name: Search
+  description: Initiate a search globally across Android TV or directly inside YouTube.
+  target:
+    entity:
+      integration: adb_mdns
+      domain:
+        - media_player
+        - remote
+    device:
+      integration: adb_mdns
+  fields:
+    query:
+      name: Search Query
+      description: The search terms to query.
+      required: true
+      example: "Documentaries"
+      selector:
+        text:
+    target:
+      name: Search Target
+      description: Where to perform the search (global Android TV search or YouTube).
+      required: false
+      default: "global"
+      selector:
+        select:
+          options:
+            - label: "Global Android TV Search"
+              value: "global"
+            - label: "YouTube TV"
+              value: "youtube"
+
+trim_caches:
+  name: Trim Caches
+  description: Trim application temporary caches across the device to free storage.
+  target:
+    entity:
+      integration: adb_mdns
+      domain:
+        - media_player
+        - remote
+    device:
+      integration: adb_mdns
+
+start_screensaver:
+  name: Start Screensaver
+  description: Immediately trigger the Android Daydream screensaver.
+  target:
+    entity:
+      integration: adb_mdns
+      domain:
+        - media_player
+        - remote
+    device:
+      integration: adb_mdns

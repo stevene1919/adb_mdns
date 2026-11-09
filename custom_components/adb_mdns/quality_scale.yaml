@@ -1,0 +1,26 @@
+# Home Assistant Integration Quality Scale Tracking
+# Official vetting by Home Assistant Core reviewers occurs in progressive stages.
+# manifest.json is pinned to "bronze", while this file documents initial baseline compliance.
+rules:
+  # Bronze
+  action-setup: done
+  appropriate-polling: done
+  brands: done
+  common-modules: done
+  config-entry-unloading: done
+  config-flow: done
+  config-flow-test-coverage: done
+  dependency-transparency: done
+  docs-actions: done
+  docs-high-level-description: done
+  docs-installation-instructions: done
+  docs-removal-instructions: done
+  entity-device-class: done
+  entity-disabled-by-default: done
+  entity-translations: done
+  entity-unique-id: done
+  has-entity-name: done
+  runtime-data: done
+  test-before-configure: done
+  test-before-setup: done
+  unique-config-entry: done

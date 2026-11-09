@@ -1,0 +1,31 @@
+{
+  "services": {
+    "adb_command": {
+      "service": "mdi:console"
+    },
+    "send_key": {
+      "service": "mdi:remote"
+    },
+    "send_key_sequence": {
+      "service": "mdi:numeric"
+    },
+    "launch_app": {
+      "service": "mdi:application-export"
+    },
+    "stop_app": {
+      "service": "mdi:close-circle-outline"
+    },
+    "send_text_input": {
+      "service": "mdi:keyboard"
+    },
+    "search": {
+      "service": "mdi:magnify"
+    },
+    "trim_caches": {
+      "service": "mdi:broom"
+    },
+    "start_screensaver": {
+      "service": "mdi:image-outline"
+    }
+  }
+}
