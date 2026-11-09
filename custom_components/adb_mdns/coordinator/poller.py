@@ -19,16 +19,14 @@ from ..const import (
 )
 from ..core import AdbAuthError, AdbConnectionError, AdbTimeoutError
 from ..tv import (
-    CMD_KEYBOARD_TEXT,
-    CMD_POLL_STATUS,
     app_name,
+    build_status_poll_command,
     current_position,
     is_launcher,
     parse_active_hdmi,
     parse_audio,
     parse_awake,
     parse_foreground,
-    parse_keyboard_proto,
     parse_keyboard_text,
     parse_media_sessions,
     parse_uptime_ms,
@@ -116,7 +114,8 @@ class CoordinatorPollerMixin:
         }
 
         try:
-            output = await self.client.shell(CMD_POLL_STATUS, timeout=7.5)
+            poll_cmd = build_status_poll_command(is_tv=self.is_tv_panel)
+            output = await self.client.shell(poll_cmd, timeout=7.5)
             sections = split_sections(output)
 
             # 1. Power / Wakefulness / Screen state
@@ -191,17 +190,7 @@ class CoordinatorPollerMixin:
 
             # 6. Keyboard / Text field detection
             ime_str = sections.get("IME", "")
-            kb_proto = parse_keyboard_proto(ime_str) if self._proto_failed_count < 30 else None
-            if kb_proto is not None:
-                data["keyboard_active"] = kb_proto
-                self._proto_failed_count = 0
-            else:
-                self._proto_failed_count += 1
-                try:
-                    txt_out = await self.client.shell(CMD_KEYBOARD_TEXT, timeout=2.5)
-                    data["keyboard_active"] = parse_keyboard_text(txt_out)
-                except Exception:
-                    data["keyboard_active"] = False
+            data["keyboard_active"] = parse_keyboard_text(ime_str) if ime_str else False
             self.keyboard_active = data["keyboard_active"]
 
             now = time.time()

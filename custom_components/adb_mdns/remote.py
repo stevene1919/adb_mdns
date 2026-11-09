@@ -45,7 +45,7 @@ class AndroidTvAdbRemote(AndroidTvAdbEntity, RemoteEntity):
     """Representation of an Android TV Remote."""
 
     _attr_has_entity_name = True
-    _attr_name = "Remote"
+    _attr_name = None
 
     def __init__(self, coordinator: AndroidTvAdbCoordinator, entry: ConfigEntry) -> None:
         """Initialize the remote entity."""

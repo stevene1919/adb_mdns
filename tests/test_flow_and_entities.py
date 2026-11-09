@@ -86,6 +86,8 @@ async def test_coordinator_state_parsing() -> None:
     # Test remote entity
     remote = AndroidTvAdbRemote(coord, entry)
     assert remote.is_on is True
+    assert remote._attr_name is None
+    assert remote._attr_has_entity_name is True
 
 
 @pytest.mark.anyio

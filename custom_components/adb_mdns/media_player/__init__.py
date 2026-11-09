@@ -18,8 +18,10 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from ..const import (
     CONF_EXCLUDE_UNNAMED_APPS,
+    CONF_INCLUDE_APPS_IN_SOURCES,
     CONF_INCLUDE_LAUNCHER_IN_SOURCES,
     DEFAULT_EXCLUDE_UNNAMED_APPS,
+    DEFAULT_INCLUDE_APPS_IN_SOURCES,
     DEFAULT_INCLUDE_LAUNCHER_IN_SOURCES,
     DOMAIN,
 )
@@ -122,18 +124,19 @@ class AndroidTvAdbMediaPlayer(
             sources.append(inp.label)
 
         # 2. Installed applications
-        exclude_unnamed = self.entry.options.get(CONF_EXCLUDE_UNNAMED_APPS, DEFAULT_EXCLUDE_UNNAMED_APPS)
-        include_launcher = self.entry.options.get(CONF_INCLUDE_LAUNCHER_IN_SOURCES, DEFAULT_INCLUDE_LAUNCHER_IN_SOURCES)
+        if self.entry.options.get(CONF_INCLUDE_APPS_IN_SOURCES, DEFAULT_INCLUDE_APPS_IN_SOURCES):
+            exclude_unnamed = self.entry.options.get(CONF_EXCLUDE_UNNAMED_APPS, DEFAULT_EXCLUDE_UNNAMED_APPS)
+            include_launcher = self.entry.options.get(CONF_INCLUDE_LAUNCHER_IN_SOURCES, DEFAULT_INCLUDE_LAUNCHER_IN_SOURCES)
 
-        app_packages = self.coordinator.installed_apps or list(APPS.keys())
-        for pkg in sorted(app_packages):
-            if not include_launcher and is_launcher(pkg):
-                continue
-            friendly = app_name(pkg)
-            if exclude_unnamed and friendly == pkg:
-                continue
-            if friendly not in sources:
-                sources.append(friendly)
+            app_packages = self.coordinator.installed_apps or list(APPS.keys())
+            for pkg in sorted(app_packages):
+                if not include_launcher and is_launcher(pkg):
+                    continue
+                friendly = app_name(pkg)
+                if exclude_unnamed and friendly == pkg:
+                    continue
+                if friendly not in sources:
+                    sources.append(friendly)
 
         return sources
 

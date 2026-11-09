@@ -11,6 +11,8 @@ from homeassistant.components.media_player import (
 from homeassistant.components.media_player.browse_media import BrowseMedia
 
 from ..const import (
+    CONF_EXCLUDE_UNNAMED_APPS,
+    DEFAULT_EXCLUDE_UNNAMED_APPS,
     KEY_MEDIA_NEXT,
     KEY_MEDIA_PLAY_PAUSE,
     KEY_MEDIA_PREVIOUS,
@@ -134,8 +136,13 @@ class AndroidTvAdbMediaPlayerControlsMixin:
         installed = self.coordinator.installed_apps or list(APPS.keys())
         children = []
 
+        opts = getattr(self.entry, "options", {}) or {}
+        exclude_unnamed = opts.get(CONF_EXCLUDE_UNNAMED_APPS, DEFAULT_EXCLUDE_UNNAMED_APPS) if isinstance(opts, dict) else DEFAULT_EXCLUDE_UNNAMED_APPS
+
         for pkg in sorted(installed):
             friendly_name = app_name(pkg)
+            if exclude_unnamed and friendly_name == pkg:
+                continue
             children.append(
                 BrowseMedia(
                     title=friendly_name,

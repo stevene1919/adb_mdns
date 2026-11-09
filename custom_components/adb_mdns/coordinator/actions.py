@@ -6,6 +6,8 @@ import asyncio
 import logging
 from typing import TYPE_CHECKING, Any
 
+from homeassistant.components.media_player import MediaPlayerState
+
 from ..const import (
     CONF_ENABLE_WOL,
     CONF_MAC,
@@ -22,10 +24,12 @@ from ..tv import (
     KEY_WAKEUP,
     TvInput,
     am_start_failed,
+    app_name,
     close_task,
     force_stop,
     input_passthrough_uri,
     input_text,
+    is_launcher,
     monkey_launch,
     parse_volume_get,
     resolve_app,
@@ -55,6 +59,10 @@ class CoordinatorActionsMixin:
 
     async def async_power_on(self: AndroidTvAdbCoordinator) -> None:
         """Wake up the TV using KEY_WAKEUP and optional Wake-on-LAN."""
+        if self.data:
+            self.data["is_on"] = True
+            self.data["state"] = MediaPlayerState.IDLE
+            self.async_set_updated_data(self.data)
         if self.entry.options.get(CONF_ENABLE_WOL, DEFAULT_ENABLE_WOL):
             mac = self.device_properties.get("mac") or self.entry.data.get(CONF_MAC)
             if mac:
@@ -65,6 +73,10 @@ class CoordinatorActionsMixin:
 
     async def async_power_off(self: AndroidTvAdbCoordinator) -> None:
         """Idempotently put the TV to sleep using KEY_SLEEP."""
+        if self.data:
+            self.data["is_on"] = False
+            self.data["state"] = MediaPlayerState.OFF
+            self.async_set_updated_data(self.data)
         await self.async_send_key(KEY_SLEEP)
         await asyncio.sleep(0.5)
         await self.async_request_refresh()
@@ -100,27 +112,45 @@ class CoordinatorActionsMixin:
     async def async_launch_app(self: AndroidTvAdbCoordinator, package_or_name: str, url: str | None = None) -> None:
         """Launch an app package or deep link on the TV."""
         pkg = resolve_app(package_or_name, self.installed_apps) or package_or_name
+
+        # Optimistic update for immediate UI feedback
+        if self.data:
+            self.data["current_app"] = pkg
+            self.data["app_name"] = app_name(pkg)
+            self.data["state"] = MediaPlayerState.PLAYING if not is_launcher(pkg) else MediaPlayerState.IDLE
+            self.async_set_updated_data(self.data)
+
         if url:
             cmd = view_uri(url, package=pkg)
             await self.client.shell(cmd, timeout=5.0)
         else:
-            try:
-                resolve_cmd = resolve_launch_activity(pkg)
-                out = await self.client.shell(resolve_cmd, timeout=4.0)
-                components = [line.strip() for line in out.splitlines() if "/" in line.strip()]
-                if components:
-                    launch_cmd = start_component(components[0])
-                    res = await self.client.shell(launch_cmd, timeout=5.0)
-                    if not am_start_failed(res):
-                        await asyncio.sleep(0.8)
-                        await self.async_request_refresh()
-                        return
-            except Exception:
-                pass
-            # Fallback to monkey
-            await self.client.shell(monkey_launch(pkg), timeout=5.0)
+            launched = False
+            cached = self._launch_component_cache.get(pkg)
+            if cached:
+                res = await self.client.shell(start_component(cached), timeout=5.0)
+                if not am_start_failed(res):
+                    launched = True
 
-        await asyncio.sleep(0.8)
+            if not launched:
+                try:
+                    resolve_cmd = resolve_launch_activity(pkg)
+                    out = await self.client.shell(resolve_cmd, timeout=4.0)
+                    components = [line.strip() for line in out.splitlines() if "/" in line.strip()]
+                    if components:
+                        comp = components[0]
+                        launch_cmd = start_component(comp)
+                        res = await self.client.shell(launch_cmd, timeout=5.0)
+                        if not am_start_failed(res):
+                            self._launch_component_cache[pkg] = comp
+                            launched = True
+                except Exception:
+                    pass
+
+            if not launched:
+                # Fallback to monkey
+                await self.client.shell(monkey_launch(pkg), timeout=5.0)
+
+        await asyncio.sleep(0.5)
         await self.async_request_refresh()
 
     async def async_stop_app(self: AndroidTvAdbCoordinator, package_or_name: str) -> None:

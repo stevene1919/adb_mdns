@@ -36,9 +36,9 @@ CMD_DEVICE_PROPERTIES = "; ".join(
 
 CMD_LIST_PACKAGES = "pm list packages -3 2>/dev/null"
 
-# Fast status poll (every scan interval).
-CMD_POLL_STATUS = "; ".join(
-    [
+def build_status_poll_command(is_tv: bool = True) -> str:
+    """Build fast status poll command string."""
+    parts = [
         _section("POWER", "dumpsys power | grep -E 'mWakefulness=|Display Power: state=|mScreenOn='"),
         _section(
             "ACT",
@@ -50,11 +50,20 @@ CMD_POLL_STATUS = "; ".join(
             "dumpsys media_session | grep -E '^[[:space:]]+(package|active)=|state=PlaybackState|metadata:'",
         ),
         _section("AUDIO", "dumpsys audio | grep -A 12 -- '- STREAM_MUSIC:'"),
-        _section("TVIN", "dumpsys tv_input 2>/dev/null | grep -m1 ResourceClientProfile"),
-        _section("IME", "dumpsys input_method --proto 2>/dev/null | od -An -tx1 -v"),
-        _section("UPTIME", "cat /proc/uptime"),
     ]
-)
+    if is_tv:
+        parts.append(_section("TVIN", "dumpsys tv_input 2>/dev/null | grep -m1 ResourceClientProfile"))
+    parts.extend(
+        [
+            _section("IME", "dumpsys input_method 2>/dev/null | grep -m1 -E 'mInputShown=true|inputType=.*fieldId='"),
+            _section("UPTIME", "cat /proc/uptime"),
+        ]
+    )
+    return "; ".join(parts)
+
+
+# Fast status poll (every scan interval).
+CMD_POLL_STATUS = build_status_poll_command(is_tv=True)
 
 CMD_KEYBOARD_TEXT = "dumpsys input_method | grep -E 'mInputShown=|inputType=.*fieldId='"
 

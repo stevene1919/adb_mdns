@@ -85,7 +85,7 @@ class AndroidTvAdbCoordinator(
         self.bluetooth_info: dict[str, Any] | None = None
         self.settings: dict[str, str] = {}
         self.keyboard_active: bool = False
-        self._proto_failed_count: int = 0
+        self._launch_component_cache: dict[str, str] = {}
         self._last_installed_apps_time: float = 0.0
         self._last_health_time: float = 0.0
         self._last_screencap_time: float = 0.0

@@ -48,79 +48,11 @@ def parse_foreground(activities: str, window: str = "") -> str | None:
     return None
 
 
-def _proto_fields(data: list[int], start: int, end: int) -> dict[int, Any] | None:
-    """Read one protobuf message: varints → int, length-delimited → (start, end)."""
-    out: dict[int, Any] = {}
-    i = start
-
-    def varint() -> int | None:
-        nonlocal i
-        value = 0
-        shift = 0
-        while i < end and shift < 64:
-            byte = data[i]
-            i += 1
-            value |= (byte & 0x7F) << shift
-            if byte < 0x80:
-                return value
-            shift += 7
-        return None
-
-    while i < end:
-        key = varint()
-        if key is None:
-            return None
-        number = key >> 3
-        wire = key & 7
-        if wire == 0:
-            val = varint()
-            if val is None:
-                return None
-            out[number] = val
-        elif wire == 1:
-            i += 8
-        elif wire == 2:
-            length = varint()
-            if length is None or length < 0 or i + length > end:
-                return None
-            out[number] = (i, i + length)
-            i += length
-        elif wire == 5:
-            i += 4
-        else:
-            return None
-    return out if i == end else None
-
-
 def parse_keyboard_proto(hex_dump: str) -> bool | None:
-    """Parse ``dumpsys input_method --proto | od -An -tx1 -v``.
-
-    Returns True if the on-screen keyboard is shown or a text field has focus,
-    False if not, ``None`` if the output isn't the expected protobuf.
-    """
-    tokens = hex_dump.split()
-    if not tokens:
+    """Backward compatibility stub for keyboard proto hex parsing."""
+    if not hex_dump or not hex_dump.strip():
         return None
-    try:
-        data = [int(tok, 16) for tok in tokens]
-    except ValueError:
-        return None
-    top = _proto_fields(data, 0, len(data))
-    if top is None:
-        return None
-    ims = top
-    if isinstance(top.get(3), tuple):
-        inner = _proto_fields(data, *top[3])
-        if inner is not None:
-            ims = inner
-    if not isinstance(ims.get(1), tuple):
-        return None  # cur_method_id missing: not InputMethodManagerService's message
-    input_type = 0
-    if isinstance(ims.get(7), tuple):
-        attr = _proto_fields(data, *ims[7])
-        if attr is not None and isinstance(attr.get(1), int):
-            input_type = attr[1]
-    return ims.get(12) == 1 or input_type != 0
+    return parse_keyboard_text(hex_dump)
 
 
 def parse_keyboard_text(text: str) -> bool:

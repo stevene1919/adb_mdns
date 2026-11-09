@@ -59,6 +59,7 @@
           "screencap_interval": "Live Screencap Artwork Interval (seconds, 0 to disable)",
           "enable_wol": "Enable Wake-on-LAN Magic Packets on Turn On",
           "enable_cec_names": "Query HDMI-CEC Connected Device Names",
+          "include_apps_in_sources": "Include Applications in Sources Dropdown",
           "exclude_unnamed_apps": "Only Show Recognized Friendly Apps in Sources Dropdown",
           "include_launcher_in_sources": "Include Launcher / Home Screen in Sources Dropdown",
           "volume_step_fallback": "Verify Volume Level and Fallback to Key Events If Ignored",
@@ -112,7 +113,7 @@
     },
     "binary_sensor": {
       "adb_connected": {
-        "name": "ADB Connected"
+        "name": "Connection"
       },
       "in_use": {
         "name": "In Use"
