@@ -85,7 +85,9 @@
           "enable_wol": "Enable Wake-on-LAN Magic Packets on Turn On",
           "volume_step_fallback": "Verify Volume Level and Fallback to Key Events If Ignored",
           "key_delay": "Remote Key Delay (seconds)",
-          "key_repeat": "Default Key Repeat Count"
+          "key_repeat": "Default Key Repeat Count",
+          "turn_on_command": "Custom Turn On Shell Command (optional)",
+          "turn_off_command": "Custom Turn Off Shell Command (optional)"
         }
       }
     }

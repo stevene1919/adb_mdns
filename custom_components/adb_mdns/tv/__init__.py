@@ -2,12 +2,14 @@
 
 from .apps import (
     APP_ICONS,
+    APP_THUMBNAILS,
     APPS,
     DEFAULT_APP_ICON,
     LAUNCHER_ICON,
     LAUNCHER_PACKAGES,
     app_icon,
     app_name,
+    app_thumbnail,
     is_launcher,
     resolve_app,
 )
@@ -110,6 +112,7 @@ __all__ = [
     "ACTION_STOP",
     "APPS",
     "APP_ICONS",
+    "APP_THUMBNAILS",
     "CMD_DEVICE_PROPERTIES",
     "CMD_KEYBOARD_TEXT",
     "CMD_LIST_PACKAGES",
@@ -141,6 +144,7 @@ __all__ = [
     "am_start_failed",
     "app_icon",
     "app_name",
+    "app_thumbnail",
     "build_health_command",
     "build_status_poll_command",
     "close_task",

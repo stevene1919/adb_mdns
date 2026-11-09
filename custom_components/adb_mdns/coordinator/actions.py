@@ -9,8 +9,11 @@ from typing import TYPE_CHECKING, Any
 from homeassistant.components.media_player import MediaPlayerState
 
 from ..const import (
+    CONF_APPS,
     CONF_ENABLE_WOL,
     CONF_MAC,
+    CONF_TURN_OFF_COMMAND,
+    CONF_TURN_ON_COMMAND,
     CONF_VOLUME_STEP_FALLBACK,
     DEFAULT_ENABLE_WOL,
     DEFAULT_VOLUME_STEP_FALLBACK,
@@ -58,7 +61,7 @@ class CoordinatorActionsMixin:
         await self.client.shell(f"input keyevent {keycode}", timeout=4.0)
 
     async def async_power_on(self: AndroidTvAdbCoordinator) -> None:
-        """Wake up the TV using KEY_WAKEUP and optional Wake-on-LAN."""
+        """Wake up the TV using KEY_WAKEUP, custom command, and optional Wake-on-LAN."""
         if self.data:
             self.data["is_on"] = True
             self.data["state"] = MediaPlayerState.IDLE
@@ -67,17 +70,27 @@ class CoordinatorActionsMixin:
             mac = self.device_properties.get("mac") or self.entry.data.get(CONF_MAC)
             if mac:
                 await async_send_magic_packet(mac)
-        await self.async_send_key(KEY_WAKEUP)
+
+        turn_on_cmd = self.entry.options.get(CONF_TURN_ON_COMMAND)
+        if turn_on_cmd:
+            await self.client.shell(turn_on_cmd, timeout=5.0)
+        else:
+            await self.async_send_key(KEY_WAKEUP)
         await asyncio.sleep(0.5)
         await self.async_request_refresh()
 
     async def async_power_off(self: AndroidTvAdbCoordinator) -> None:
-        """Idempotently put the TV to sleep using KEY_SLEEP."""
+        """Put the TV to sleep using KEY_SLEEP or custom command."""
         if self.data:
             self.data["is_on"] = False
             self.data["state"] = MediaPlayerState.OFF
             self.async_set_updated_data(self.data)
-        await self.async_send_key(KEY_SLEEP)
+
+        turn_off_cmd = self.entry.options.get(CONF_TURN_OFF_COMMAND)
+        if turn_off_cmd:
+            await self.client.shell(turn_off_cmd, timeout=5.0)
+        else:
+            await self.async_send_key(KEY_SLEEP)
         await asyncio.sleep(0.5)
         await self.async_request_refresh()
 
@@ -111,12 +124,14 @@ class CoordinatorActionsMixin:
 
     async def async_launch_app(self: AndroidTvAdbCoordinator, package_or_name: str, url: str | None = None) -> None:
         """Launch an app package or deep link on the TV."""
-        pkg = resolve_app(package_or_name, self.installed_apps) or package_or_name
+        opts = getattr(self.entry, "options", {}) or {}
+        custom_apps = opts.get(CONF_APPS, {}) if isinstance(opts, dict) else {}
+        pkg = resolve_app(package_or_name, self.installed_apps, custom_apps) or package_or_name
 
         # Optimistic update for immediate UI feedback
         if self.data:
             self.data["current_app"] = pkg
-            self.data["app_name"] = app_name(pkg)
+            self.data["app_name"] = app_name(pkg, custom_apps)
             self.data["state"] = MediaPlayerState.PLAYING if not is_launcher(pkg) else MediaPlayerState.IDLE
             self.async_set_updated_data(self.data)
 

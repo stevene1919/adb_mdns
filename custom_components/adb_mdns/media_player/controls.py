@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from typing import TYPE_CHECKING, Any
 
 from homeassistant.components.media_player import (
@@ -11,6 +12,7 @@ from homeassistant.components.media_player import (
 from homeassistant.components.media_player.browse_media import BrowseMedia
 
 from ..const import (
+    CONF_APPS,
     CONF_EXCLUDE_UNNAMED_APPS,
     DEFAULT_EXCLUDE_UNNAMED_APPS,
     KEY_MEDIA_NEXT,
@@ -22,7 +24,7 @@ from ..const import (
     KEY_VOLUME_DOWN,
     KEY_VOLUME_UP,
 )
-from ..tv import APPS, app_name
+from ..tv import APPS, app_name, app_thumbnail
 
 if TYPE_CHECKING:
     from . import AndroidTvAdbMediaPlayer
@@ -119,10 +121,21 @@ class AndroidTvAdbMediaPlayerControlsMixin:
     async def async_play_media(
         self: AndroidTvAdbMediaPlayer, media_type: MediaType | str, media_id: str, **kwargs: Any
     ) -> None:
-        """Play media or launch app / deep-link URL."""
+        """Play media or launch app / deep-link URL / numeric channel."""
+        if media_type in (MediaType.CHANNEL, "channel"):
+            if not media_id.isnumeric():
+                await self.coordinator.async_launch_app("", url=media_id)
+                return
+            for ch in media_id:
+                # Keycodes for '0' through '9' are 7 through 16 (KEYCODE_0=7, KEYCODE_9=16)
+                keycode = 7 + int(ch)
+                await self.coordinator.async_send_key(keycode)
+                await asyncio.sleep(0.1)
+            return
+
         if media_type in (MediaType.APP, "app"):
             await self.coordinator.async_launch_app(media_id)
-        elif media_type in (MediaType.URL, "url", "channel"):
+        elif media_type in (MediaType.URL, "url"):
             await self.coordinator.async_launch_app("", url=media_id)
         else:
             await self.coordinator.async_launch_app(media_id)
@@ -138,9 +151,10 @@ class AndroidTvAdbMediaPlayerControlsMixin:
 
         opts = getattr(self.entry, "options", {}) or {}
         exclude_unnamed = opts.get(CONF_EXCLUDE_UNNAMED_APPS, DEFAULT_EXCLUDE_UNNAMED_APPS) if isinstance(opts, dict) else DEFAULT_EXCLUDE_UNNAMED_APPS
+        custom_apps = opts.get(CONF_APPS, {}) if isinstance(opts, dict) else {}
 
         for pkg in sorted(installed):
-            friendly_name = app_name(pkg)
+            friendly_name = app_name(pkg, custom_apps)
             if exclude_unnamed and friendly_name == pkg:
                 continue
             children.append(
@@ -151,7 +165,7 @@ class AndroidTvAdbMediaPlayerControlsMixin:
                     media_content_type=MediaType.APP,
                     can_play=True,
                     can_expand=False,
-                    thumbnail=None,
+                    thumbnail=app_thumbnail(pkg),
                 )
             )
 

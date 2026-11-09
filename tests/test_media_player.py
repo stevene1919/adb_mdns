@@ -1,14 +1,32 @@
 """Tests for Media Player platform, source list, browse media, and app controls."""
 
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, call
 
 import pytest
+from homeassistant.components.media_player import MediaType
 from homeassistant.const import CONF_HOST
 
-from custom_components.adb_mdns.const import CONF_INCLUDE_APPS_IN_SOURCES
+from custom_components.adb_mdns.const import (
+    CONF_APPS,
+    CONF_INCLUDE_APPS_IN_SOURCES,
+    CONF_TURN_OFF_COMMAND,
+    CONF_TURN_ON_COMMAND,
+    KEY_SLEEP,
+    KEY_WAKEUP,
+)
 from custom_components.adb_mdns.coordinator import AndroidTvAdbCoordinator
-from custom_components.adb_mdns.media_player import AndroidTvAdbMediaPlayer
-from custom_components.adb_mdns.tv import TvInput, build_status_poll_command
+from custom_components.adb_mdns.media_player import (
+    PARALLEL_UPDATES as MP_PARALLEL_UPDATES,
+    AndroidTvAdbMediaPlayer,
+)
+from custom_components.adb_mdns.remote import (
+    PARALLEL_UPDATES as REMOTE_PARALLEL_UPDATES,
+)
+from custom_components.adb_mdns.tv import (
+    TvInput,
+    app_thumbnail,
+    build_status_poll_command,
+)
 
 
 @pytest.mark.anyio
@@ -38,6 +56,115 @@ async def test_media_player_sources_and_browse_media() -> None:
     assert len(browse.children) == 1
     assert browse.children[0].title == "Netflix"
     assert browse.children[0].media_content_id == "com.netflix.ninja"
+    assert browse.children[0].thumbnail is not None
+    assert "brands.home-assistant.io" in browse.children[0].thumbnail
+
+
+@pytest.mark.anyio
+async def test_custom_app_overrides_and_source_selection() -> None:
+    """Test custom package overrides in options flow reflect in sources and browse media."""
+    hass = MagicMock()
+    entry = MagicMock()
+    entry.data = {CONF_HOST: "192.168.1.50"}
+    entry.options = {
+        CONF_INCLUDE_APPS_IN_SOURCES: True,
+        CONF_APPS: {"com.unknown.foo": "My Custom Player"},
+    }
+    client = MagicMock()
+    coord = AndroidTvAdbCoordinator(hass, entry, client)
+    coord.inputs = []
+    coord.installed_apps = ["com.unknown.foo"]
+    coord.data = {"state": "idle", "is_on": True, "current_app": "com.unknown.foo"}
+
+    mp = AndroidTvAdbMediaPlayer(coord, entry)
+    assert mp.source_list == ["My Custom Player"]
+    assert mp.source == "My Custom Player"
+
+    browse = await mp.async_browse_media()
+    assert browse.children is not None
+    assert len(browse.children) == 1
+    assert browse.children[0].title == "My Custom Player"
+    assert browse.children[0].media_content_id == "com.unknown.foo"
+
+
+def test_app_thumbnails() -> None:
+    """Test official CDN logo resolution for known and unknown apps."""
+    assert app_thumbnail("com.netflix.ninja") == "https://brands.home-assistant.io/_/netflix/logo.png"
+    assert app_thumbnail("com.google.android.youtube.tv") == "https://brands.home-assistant.io/_/youtube/logo.png"
+    assert app_thumbnail("org.xbmc.kodi") == "https://brands.home-assistant.io/_/kodi/logo.png"
+    assert app_thumbnail("com.unknown.random") is None
+    assert app_thumbnail(None) is None
+
+
+@pytest.mark.anyio
+async def test_channel_tuning_numeric_and_stream() -> None:
+    """Test channel tuning key sequence dispatch and stream URL fallback."""
+    hass = MagicMock()
+    entry = MagicMock()
+    entry.data = {CONF_HOST: "192.168.1.50"}
+    entry.options = {}
+    client = MagicMock()
+    coord = AndroidTvAdbCoordinator(hass, entry, client)
+    coord.async_send_key = AsyncMock()
+    coord.async_launch_app = AsyncMock()
+
+    mp = AndroidTvAdbMediaPlayer(coord, entry)
+
+    # Tuning to channel 102 sends keycodes 8 ('1'), 7 ('0'), 9 ('2')
+    await mp.async_play_media(MediaType.CHANNEL, "102")
+    assert coord.async_send_key.call_args_list == [call(8), call(7), call(9)]
+
+    # Tuning with single digit
+    coord.async_send_key.reset_mock()
+    await mp.async_play_media("channel", "5")
+    assert coord.async_send_key.call_args_list == [call(12)]
+
+    # Non-numeric channel URL launches as stream URL
+    coord.async_send_key.reset_mock()
+    await mp.async_play_media(MediaType.CHANNEL, "https://live.stream/test.m3u8")
+    assert not coord.async_send_key.called
+    coord.async_launch_app.assert_awaited_once_with("", url="https://live.stream/test.m3u8")
+
+
+@pytest.mark.anyio
+async def test_custom_power_commands_and_fallback() -> None:
+    """Test custom turn on and turn off commands override default keycodes."""
+    hass = MagicMock()
+    entry = MagicMock()
+    entry.data = {CONF_HOST: "192.168.1.50"}
+    entry.options = {
+        CONF_TURN_ON_COMMAND: "input keyevent 3",
+        CONF_TURN_OFF_COMMAND: "input keyevent 26",
+    }
+    client = MagicMock()
+    client.shell = AsyncMock(return_value="")
+    coord = AndroidTvAdbCoordinator(hass, entry, client)
+    coord.async_request_refresh = AsyncMock()
+
+    # Custom power on executes configured shell command
+    await coord.async_power_on()
+    client.shell.assert_awaited_with("input keyevent 3", timeout=5.0)
+
+    # Custom power off executes configured shell command
+    client.shell.reset_mock()
+    await coord.async_power_off()
+    client.shell.assert_awaited_with("input keyevent 26", timeout=5.0)
+
+    # Fallback to default keycodes when no custom commands configured
+    entry.options = {}
+    coord.async_send_key = AsyncMock()
+    await coord.async_power_on()
+    coord.async_send_key.assert_awaited_with(KEY_WAKEUP)
+
+    coord.async_send_key.reset_mock()
+    await coord.async_power_off()
+    coord.async_send_key.assert_awaited_with(KEY_SLEEP)
+
+
+def test_concurrency_parallel_updates_guard() -> None:
+    """Test PARALLEL_UPDATES is set to 1 on media player and remote to prevent socket collisions."""
+    assert MP_PARALLEL_UPDATES == 1
+    assert REMOTE_PARALLEL_UPDATES == 1
 
 
 @pytest.mark.anyio

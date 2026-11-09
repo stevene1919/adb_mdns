@@ -63,9 +63,13 @@ async def test_options_flow() -> None:
     assert ctrl_form["type"] == "form"
     assert ctrl_form["step_id"] == "controls"
 
-    ctrl_save = await flow.async_step_controls({"key_delay": 0.5})
+    ctrl_save = await flow.async_step_controls(
+        {"key_delay": 0.5, "turn_on_command": "input keyevent 3", "turn_off_command": "input keyevent 26"}
+    )
     assert ctrl_save["type"] == "create_entry"
     assert ctrl_save["data"]["key_delay"] == 0.5
+    assert ctrl_save["data"]["turn_on_command"] == "input keyevent 3"
+    assert ctrl_save["data"]["turn_off_command"] == "input keyevent 26"
 
 
 @pytest.mark.anyio

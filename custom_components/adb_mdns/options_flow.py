@@ -19,6 +19,8 @@ from .const import (
     CONF_KEY_REPEAT,
     CONF_SCAN_INTERVAL,
     CONF_SCREENCAP_INTERVAL,
+    CONF_TURN_OFF_COMMAND,
+    CONF_TURN_ON_COMMAND,
     CONF_VOLUME_STEP_FALLBACK,
     DEFAULT_ENABLE_CEC_NAMES,
     DEFAULT_ENABLE_WOL,
@@ -141,6 +143,14 @@ class AndroidTvAdbOptionsFlowHandler(config_entries.OptionsFlow):
                     CONF_KEY_REPEAT,
                     default=options.get(CONF_KEY_REPEAT, DEFAULT_KEY_REPEAT),
                 ): vol.All(vol.Coerce(int), vol.Range(min=1, max=10)),
+                vol.Optional(
+                    CONF_TURN_ON_COMMAND,
+                    default=options.get(CONF_TURN_ON_COMMAND, ""),
+                ): str,
+                vol.Optional(
+                    CONF_TURN_OFF_COMMAND,
+                    default=options.get(CONF_TURN_OFF_COMMAND, ""),
+                ): str,
             }
         )
         return self.async_show_form(step_id="controls", data_schema=schema)

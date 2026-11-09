@@ -29,6 +29,8 @@ CONF_INCLUDE_LAUNCHER_IN_SOURCES = "include_launcher_in_sources"
 CONF_KEY_DELAY = "key_delay"
 CONF_KEY_REPEAT = "key_repeat"
 CONF_VOLUME_STEP_FALLBACK = "volume_step_fallback"
+CONF_TURN_ON_COMMAND = "turn_on_command"
+CONF_TURN_OFF_COMMAND = "turn_off_command"
 
 # mDNS Service Types
 MDNS_CONNECT_TYPE = "_adb-tls-connect._tcp.local."
@@ -141,6 +143,8 @@ __all__ = [
     "CONF_SCREENCAP_INTERVAL",
     "CONF_SERIALNO",
     "CONF_SW_VERSION",
+    "CONF_TURN_OFF_COMMAND",
+    "CONF_TURN_ON_COMMAND",
     "CONF_VOLUME_STEP_FALLBACK",
     "DEFAULT_ENABLE_CEC_NAMES",
     "DEFAULT_ENABLE_WOL",

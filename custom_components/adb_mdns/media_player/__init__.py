@@ -17,6 +17,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from ..const import (
+    CONF_APPS,
     CONF_EXCLUDE_UNNAMED_APPS,
     CONF_INCLUDE_APPS_IN_SOURCES,
     CONF_INCLUDE_LAUNCHER_IN_SOURCES,
@@ -36,6 +37,8 @@ from ..tv import (
 from .controls import AndroidTvAdbMediaPlayerControlsMixin
 
 _LOGGER = logging.getLogger(__name__)
+
+PARALLEL_UPDATES = 1
 
 
 async def async_setup_entry(
@@ -112,7 +115,8 @@ class AndroidTvAdbMediaPlayer(
             return None
         if hdmi := self.coordinator.data.get("hdmi_input"):
             return hdmi
-        return self.coordinator.data.get("app_name") or self.coordinator.data.get("current_app")
+        custom_apps = self.entry.options.get(CONF_APPS, {})
+        return app_name(self.coordinator.data.get("current_app"), custom_apps) or self.coordinator.data.get("app_name")
 
     @property
     def source_list(self) -> list[str]:
@@ -127,15 +131,17 @@ class AndroidTvAdbMediaPlayer(
         if self.entry.options.get(CONF_INCLUDE_APPS_IN_SOURCES, DEFAULT_INCLUDE_APPS_IN_SOURCES):
             exclude_unnamed = self.entry.options.get(CONF_EXCLUDE_UNNAMED_APPS, DEFAULT_EXCLUDE_UNNAMED_APPS)
             include_launcher = self.entry.options.get(CONF_INCLUDE_LAUNCHER_IN_SOURCES, DEFAULT_INCLUDE_LAUNCHER_IN_SOURCES)
+            custom_apps = self.entry.options.get(CONF_APPS, {})
 
-            app_packages = self.coordinator.installed_apps or list(APPS.keys())
+            app_packages = set(self.coordinator.installed_apps or list(APPS.keys()))
+            app_packages.update(custom_apps.keys())
             for pkg in sorted(app_packages):
                 if not include_launcher and is_launcher(pkg):
                     continue
-                friendly = app_name(pkg)
+                friendly = app_name(pkg, custom_apps)
                 if exclude_unnamed and friendly == pkg:
                     continue
-                if friendly not in sources:
+                if friendly and friendly not in sources:
                     sources.append(friendly)
 
         return sources

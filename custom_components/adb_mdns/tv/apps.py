@@ -158,15 +158,51 @@ APP_ICONS: dict[str, str] = {
     "com.valvesoftware.steamlink": "mdi:steam",
     "org.mozilla.tv.firefox": "mdi:firefox",
     "com.apple.atve.android.appletv": "mdi:apple",
+    "com.hulu.plus": "mdi:hulu",
+    "au.com.stan.and": "mdi:television-classic",
+    "au.net.abc.iview": "mdi:television-classic",
+    "au.streamotion.ares": "mdi:television-classic",
+    "tv.standard.nebula": "mdi:play-circle",
+    "org.localsend.localsend_app": "mdi:share-variant",
+    "com.tpn.adbautoenable": "mdi:android-debug-bridge",
 }
 DEFAULT_APP_ICON = "mdi:application"
 LAUNCHER_ICON = "mdi:television-guide"
 
+# Official brand logo CDN URLs for Media Browser
+APP_THUMBNAILS: dict[str, str] = {
+    "com.netflix.ninja": "https://brands.home-assistant.io/_/netflix/logo.png",
+    "com.google.android.youtube.tv": "https://brands.home-assistant.io/_/youtube/logo.png",
+    "com.google.android.youtube.tvkids": "https://brands.home-assistant.io/_/youtube/logo.png",
+    "com.google.android.youtube.tvmusic": "https://brands.home-assistant.io/_/youtube_music/logo.png",
+    "com.amazon.amazonvideo.livingroom": "https://brands.home-assistant.io/_/prime_video/logo.png",
+    "com.amazon.avod.thirdpartyclient": "https://brands.home-assistant.io/_/prime_video/logo.png",
+    "com.disney.disneyplus": "https://brands.home-assistant.io/_/disneyplus/logo.png",
+    "com.spotify.tv.android": "https://brands.home-assistant.io/_/spotify/logo.png",
+    "org.xbmc.kodi": "https://brands.home-assistant.io/_/kodi/logo.png",
+    "com.plexapp.android": "https://brands.home-assistant.io/_/plex/logo.png",
+    "org.jellyfin.androidtv": "https://brands.home-assistant.io/_/jellyfin/logo.png",
+    "tv.emby.embyatv": "https://brands.home-assistant.io/_/emby/logo.png",
+    "org.videolan.vlc": "https://brands.home-assistant.io/_/vlc/logo.png",
+    "tv.twitch.android.app": "https://brands.home-assistant.io/_/twitch/logo.png",
+    "com.apple.atve.android.appletv": "https://brands.home-assistant.io/_/apple_tv/logo.png",
+    "com.google.android.apps.mediashell": "https://brands.home-assistant.io/_/google_cast/logo.png",
+}
 
-def app_name(package: str | None) -> str | None:
+
+def app_thumbnail(package: str | None) -> str | None:
+    """Return a logo/thumbnail URL for an app package if available."""
+    if not package:
+        return None
+    return APP_THUMBNAILS.get(package)
+
+
+def app_name(package: str | None, custom_apps: dict[str, str] | None = None) -> str | None:
     """Return the friendly name for a package (or the package id itself)."""
     if not package:
         return None
+    if custom_apps and package in custom_apps:
+        return custom_apps[package]
     return APPS.get(package, package)
 
 
@@ -184,7 +220,11 @@ def is_launcher(package: str | None) -> bool:
     return bool(package) and package in LAUNCHER_PACKAGES
 
 
-def resolve_app(query: str, installed: list[str] | None = None) -> str | None:
+def resolve_app(
+    query: str,
+    installed: list[str] | None = None,
+    custom_apps: dict[str, str] | None = None,
+) -> str | None:
     """Resolve a friendly name, package id or fuzzy name to a package id.
 
     Resolution order: exact package id, exact friendly name (case-insensitive),
@@ -194,14 +234,15 @@ def resolve_app(query: str, installed: list[str] | None = None) -> str | None:
     if not query:
         return None
     q = query.strip()
-    candidates = list(installed) if installed else list(APPS)
-    if q in candidates or (installed is None and q in APPS):
+    all_apps = {**APPS, **(custom_apps or {})}
+    candidates = list(installed) if installed else list(all_apps)
+    if q in candidates or (installed is None and q in all_apps):
         return q
     if "." in q and " " not in q:
         # Looks like a package id: trust it even if not in the installed list.
         return q
     lowered = q.lower()
-    names = {app_name(pkg).lower(): pkg for pkg in candidates}  # type: ignore[union-attr]
+    names = {app_name(pkg, custom_apps).lower(): pkg for pkg in candidates}  # type: ignore[union-attr]
     if lowered in names:
         return names[lowered]
     for name, pkg in names.items():
