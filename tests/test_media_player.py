@@ -215,3 +215,58 @@ def test_build_status_poll_command() -> None:
     assert "dumpsys power" in box_cmd
     assert "dumpsys tv_input" not in box_cmd
     assert "dumpsys input_method" in box_cmd
+
+
+@pytest.mark.anyio
+async def test_bluetooth_sound_mode_and_controls() -> None:
+    """Test Bluetooth headphone sound_mode_list, sound_mode, and async_select_sound_mode."""
+    hass = MagicMock()
+    entry = MagicMock()
+    entry.data = {CONF_HOST: "192.168.50.10"}
+    entry.options = {}
+    client = MagicMock()
+    client.shell = AsyncMock(return_value="")
+    coord = AndroidTvAdbCoordinator(hass, entry, client)
+    coord.device_properties = {"model": "Chromecast", "manufacturer": "Google", "hdmi_device_type": "4"}
+    coord.data = {
+        "state": "idle",
+        "is_on": True,
+        "current_app": "com.netflix.ninja",
+        "app_name": "Netflix",
+        "audio_output": "HDMI",
+        "screencap_hash": "abcd1234",
+        "bluetooth_devices": [
+            {"address": "DC:2C:26:07:19:0D", "name": "Sofabaton 3B91", "connected": True, "type": "input"},
+            {"address": "AC:3E:B1:95:BD:A5", "name": "Steven's Pixel Buds Pro 2", "connected": False, "type": "audio"},
+            {"address": "04:00:6E:D1:CF:17", "name": "Steven's Pixel Buds Pro 2", "connected": False, "type": "audio"},
+        ],
+    }
+
+    mp = AndroidTvAdbMediaPlayer(coord, entry)
+    assert mp.app_name == "Netflix"
+    assert mp.sound_mode == "HDMI"
+    assert mp.sound_mode_list == [
+        "HDMI",
+        "Steven's Pixel Buds Pro 2 (BD:A5)",
+        "Steven's Pixel Buds Pro 2 (CF:17)",
+    ]
+    assert "app_id" not in mp.extra_state_attributes
+    assert len(mp.extra_state_attributes["bluetooth_audio_devices"]) == 2
+
+    # When headphone connects, sound_mode updates to the connected headphone
+    coord.data["bluetooth_devices"][2]["connected"] = True
+    assert mp.sound_mode == "Steven's Pixel Buds Pro 2 (CF:17)"
+
+    # Selecting HDMI disconnects the connected headphone
+    coord.async_disconnect_bluetooth = AsyncMock()
+    coord.async_connect_bluetooth = AsyncMock()
+    await mp.async_select_sound_mode("HDMI")
+    coord.async_disconnect_bluetooth.assert_awaited_once_with("04:00:6E:D1:CF:17")
+
+    # Selecting a headphone calls async_connect_bluetooth
+    await mp.async_select_sound_mode("Steven's Pixel Buds Pro 2 (CF:17)")
+    coord.async_connect_bluetooth.assert_awaited_once_with("Steven's Pixel Buds Pro 2 (CF:17)")
+
+    # When state is OFF, media_image_hash is None
+    coord.data["state"] = "off"
+    assert mp.media_image_hash is None

@@ -33,6 +33,7 @@ async def async_setup_entry(
             AndroidTvAdbRestartButton(coordinator, entry),
             AndroidTvAdbTrimCachesButton(coordinator, entry),
             AndroidTvAdbScreensaverButton(coordinator, entry),
+            AndroidTvAdbPairBluetoothButton(coordinator, entry),
         ]
     )
 
@@ -81,3 +82,18 @@ class AndroidTvAdbScreensaverButton(AndroidTvAdbEntity, ButtonEntity):
 
     async def async_press(self) -> None:
         await self.coordinator.async_start_screensaver()
+
+
+class AndroidTvAdbPairBluetoothButton(AndroidTvAdbEntity, ButtonEntity):
+    """Button entity to launch the Android TV Bluetooth accessory pairing screen."""
+
+    _attr_has_entity_name = True
+    _attr_translation_key = "pair_bluetooth"
+    _attr_icon = "mdi:bluetooth-connect"
+
+    def __init__(self, coordinator: AndroidTvAdbCoordinator, entry: ConfigEntry) -> None:
+        super().__init__(coordinator, entry)
+        self._attr_unique_id = f"{entry.data[CONF_HOST]}_pair_bluetooth_button"
+
+    async def async_press(self) -> None:
+        await self.coordinator.async_pair_bluetooth()

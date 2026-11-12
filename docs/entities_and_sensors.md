@@ -9,7 +9,8 @@ The **ADB mDNS** integration creates a rich set of Home Assistant entities expos
 The primary platform representing your Android TV or Google TV:
 
 - **Power State:** Accurately reflects device sleep/awake state parsed from `dumpsys power`.
-- **Playback Control:** Play, Pause, Stop, Previous / Next Track, Seek, Volume Set/Step/Mute.
+- **Playback Control:** Play, Pause, Stop, Previous / Next Track, Volume Set/Step/Mute.
+- **Bluetooth Headphone Sound Mode (`sound_mode`):** Exposes `HDMI` / `TV Speaker` and all paired Bluetooth audio devices (earphones, headphones, speakers) in the Media Player Sound Mode dropdown. Selecting a Bluetooth device connects it directly via Android TV's native Slice provider; selecting `HDMI` / `TV Speaker` disconnects active Bluetooth audio.
 - **Progress Extrapolation:** Extrapolates current track playback position in real-time from Android OS MediaSession tokens (`cmd media_session`).
 - **Dynamic App & Media Artwork:** Displays currently active media titles, artists, and dynamically loads high-resolution application icons.
 - **Hardware HDMI Inputs:** Discovers connected HDMI ports and dynamically queries connected HDMI-CEC devices (e.g., `HDMI 1 · PlayStation 5`, `HDMI 2 · Apple TV`) with instant input switching via passthrough URIs.
@@ -64,6 +65,7 @@ Virtual remote control for automations and Lovelace dashboard remote cards:
 | `button.<tv>_restart` | Restart TV | Safely reboots the Android operating system (`reboot`). |
 | `button.<tv>_trim_caches` | Trim Caches | Calls `pm trim-caches 999G` to reclaim storage without affecting user data. |
 | `button.<tv>_start_screensaver` | Start Screensaver | Immediately activates the Daydream screensaver (`am start -n ...`). |
+| `button.<tv>_pair_bluetooth_accessory` | Pair Bluetooth Accessory | Launches the Android TV Bluetooth accessory pairing screen (*"Searching for accessories..."*). |
 
 ---
 

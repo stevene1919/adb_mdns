@@ -33,6 +33,15 @@
     },
     "start_screensaver": {
       "service": "mdi:image-outline"
+    },
+    "pair_bluetooth": {
+      "service": "mdi:bluetooth-connect"
+    },
+    "connect_bluetooth": {
+      "service": "mdi:headphones-bluetooth"
+    },
+    "disconnect_bluetooth": {
+      "service": "mdi:bluetooth-off"
     }
   }
 }

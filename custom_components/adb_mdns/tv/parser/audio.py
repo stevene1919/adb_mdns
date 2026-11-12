@@ -8,6 +8,7 @@ from dataclasses import dataclass
 _RE_MUSIC_MAX = re.compile(r"Max:\s*(\d+)")
 _RE_MUSIC_MUTED = re.compile(r"Muted:\s*(true|false)", re.IGNORECASE)
 _RE_MUSIC_DEVICES = re.compile(r"Devices:\s*([^\r\n]+)")
+_RE_MUSIC_STREAM_VOL = re.compile(r"streamVolume:\s*(\d+)")
 _RE_MUSIC_ANY_VOL = re.compile(r"\):\s*(\d+)")
 _RE_VOLUME_GET = re.compile(r"volume is (\d+) in range \[(\d+)\.\.(\d+)\]")
 
@@ -83,11 +84,17 @@ def parse_audio(text: str) -> AudioState:
         state.device = m.group(1).strip()
     if state.device:
         first = state.device.split(",")[0].strip()
-        vol_m = re.search(r"\(" + re.escape(first) + r"\)[^:\n]*:\s*(\d+)", text) or re.search(
-            re.escape(first) + r"[^\n]*?:\s*(\d+)", text.split("Devices:", 1)[-1] if "Devices:" in text else text
-        )
+        clean_first = re.sub(r"\(.*?\)", "", first).strip()
+        vol_m = None
+        if clean_first:
+            vol_m = re.search(r"\(" + re.escape(clean_first) + r"\)[^:\n]*:\s*(\d+)", text) or re.search(
+                r"\b" + re.escape(clean_first) + r"\b[^:\n]*:\s*(\d+)",
+                text.split("Devices:", 1)[0] if "Devices:" in text else text,
+            )
         if vol_m:
             state.volume = int(vol_m.group(1))
+    if state.volume is None and (m := _RE_MUSIC_STREAM_VOL.search(text)):
+        state.volume = int(m.group(1))
     if state.volume is None and (m := _RE_MUSIC_ANY_VOL.search(text)):
         state.volume = int(m.group(1))
     return state

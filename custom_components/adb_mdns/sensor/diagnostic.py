@@ -176,7 +176,6 @@ class AndroidTvAdbBluetoothDevicesSensor(AndroidTvAdbEntity, SensorEntity):
     _attr_icon = "mdi:bluetooth"
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_entity_category = EntityCategory.DIAGNOSTIC
-    _attr_entity_registry_enabled_default = False
 
     def __init__(self, coordinator: AndroidTvAdbCoordinator, entry: ConfigEntry) -> None:
         super().__init__(coordinator, entry)
@@ -190,7 +189,13 @@ class AndroidTvAdbBluetoothDevicesSensor(AndroidTvAdbEntity, SensorEntity):
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         devices = self.coordinator.data.get("bluetooth_devices", []) if self.coordinator.data else []
-        return {"devices": devices}
+        audio_devices = [d for d in devices if d.get("type") == "audio"]
+        connected_devices = [d for d in devices if d.get("connected")]
+        return {
+            "devices": devices,
+            "audio_devices": audio_devices,
+            "connected_count": len(connected_devices),
+        }
 
 
 class AndroidTvAdbLastWakeReasonSensor(AndroidTvAdbEntity, SensorEntity):

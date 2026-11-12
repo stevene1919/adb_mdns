@@ -91,17 +91,22 @@ class AndroidTvAdbMediaPlayerControlsMixin:
     async def async_media_next_track(self: AndroidTvAdbMediaPlayer) -> None:
         """Send next track."""
         await self.coordinator.async_send_key(KEY_MEDIA_NEXT)
+        await self.coordinator.async_request_refresh()
 
     async def async_media_previous_track(self: AndroidTvAdbMediaPlayer) -> None:
         """Send previous track."""
         await self.coordinator.async_send_key(KEY_MEDIA_PREVIOUS)
-
-    async def async_media_seek(self: AndroidTvAdbMediaPlayer, position: float) -> None:
-        """Seek to position in seconds."""
-        pos_ms = int(position * 1000)
-        cmd = f"cmd media_session seek {pos_ms} 2>/dev/null"
-        await self.coordinator.client.shell(cmd, timeout=4.0)
         await self.coordinator.async_request_refresh()
+
+    async def async_select_sound_mode(self: AndroidTvAdbMediaPlayer, sound_mode: str) -> None:
+        """Select audio output mode or connect/disconnect a paired Bluetooth headphone."""
+        if sound_mode in ("HDMI", "TV Speaker", "Optical / S/PDIF", "USB Audio"):
+            for dev in self._paired_audio_bluetooth_devices():
+                if dev.get("connected"):
+                    await self.coordinator.async_disconnect_bluetooth(str(dev.get("address", "")))
+            return
+
+        await self.coordinator.async_connect_bluetooth(sound_mode)
 
     async def async_select_source(self: AndroidTvAdbMediaPlayer, source: str) -> None:
         """Select input source or stop app (if prefixed with '!')."""

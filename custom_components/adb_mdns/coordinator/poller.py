@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Any
 
 from homeassistant.components.media_player import MediaPlayerState
 from homeassistant.helpers.update_coordinator import UpdateFailed
+from homeassistant.util import dt as dt_util
 
 from ..const import (
     CONF_HEALTH_INTERVAL,
@@ -19,6 +20,13 @@ from ..const import (
 )
 from ..core import AdbAuthError, AdbConnectionError, AdbTimeoutError
 from ..tv import (
+    PLAYBACK_BUFFERING,
+    PLAYBACK_FAST_FORWARDING,
+    PLAYBACK_NONE,
+    PLAYBACK_PAUSED,
+    PLAYBACK_PLAYING,
+    PLAYBACK_REWINDING,
+    PLAYBACK_STOPPED,
     app_name,
     build_status_poll_command,
     current_position,
@@ -148,24 +156,33 @@ class CoordinatorPollerMixin:
             self.active_media_session = chosen_session
 
             if chosen_session:
-                if chosen_session.state == 3:  # PLAYING
+                if chosen_session.state in (PLAYBACK_PLAYING, PLAYBACK_FAST_FORWARDING, PLAYBACK_REWINDING):
                     data["state"] = MediaPlayerState.PLAYING
-                elif chosen_session.state == 2:  # PAUSED
+                elif chosen_session.state == PLAYBACK_PAUSED:
                     data["state"] = MediaPlayerState.PAUSED
-                elif chosen_session.state in (1, 0):  # STOPPED / NONE
+                elif chosen_session.state == PLAYBACK_BUFFERING:
+                    data["state"] = MediaPlayerState.BUFFERING
+                elif chosen_session.state in (PLAYBACK_STOPPED, PLAYBACK_NONE):
                     data["state"] = MediaPlayerState.IDLE
 
-                data["media_title"] = chosen_session.title
-                data["media_artist"] = chosen_session.artist
-                data["media_album"] = chosen_session.album
-                data["media_actions"] = chosen_session.actions
+                if chosen_session.state in (
+                    PLAYBACK_PLAYING,
+                    PLAYBACK_PAUSED,
+                    PLAYBACK_BUFFERING,
+                    PLAYBACK_FAST_FORWARDING,
+                    PLAYBACK_REWINDING,
+                ):
+                    data["media_title"] = chosen_session.title
+                    data["media_artist"] = chosen_session.artist
+                    data["media_album"] = chosen_session.album
+                    data["media_actions"] = chosen_session.actions
 
-                pos = current_position(chosen_session, uptime_ms)
-                if pos is not None:
-                    data["media_position"] = pos
-                    data["media_position_updated_at"] = time.time()
-                    self.media_position = pos
-                    self.media_position_updated_at = data["media_position_updated_at"]
+                    pos = current_position(chosen_session, uptime_ms)
+                    if pos is not None:
+                        data["media_position"] = round(pos)
+                        data["media_position_updated_at"] = dt_util.utcnow()
+                        self.media_position = data["media_position"]
+                        self.media_position_updated_at = data["media_position_updated_at"]
 
             # Launcher is IDLE
             if is_launcher(current_app) and data["state"] != MediaPlayerState.PLAYING:

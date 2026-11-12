@@ -17,9 +17,15 @@ from ..const import (
     CONF_VOLUME_STEP_FALLBACK,
     DEFAULT_ENABLE_WOL,
     DEFAULT_VOLUME_STEP_FALLBACK,
+    KEY_BACK,
+    KEY_DPAD_CENTER,
+    KEY_DPAD_DOWN,
+    KEY_DPAD_UP,
 )
 from ..core import async_send_magic_packet
 from ..tv import (
+    CMD_BLUETOOTH_SETTINGS,
+    CMD_PAIR_BLUETOOTH,
     CMD_START_SCREENSAVER,
     CMD_TRIM_CACHES,
     CMD_VOLUME_GET,
@@ -28,6 +34,7 @@ from ..tv import (
     TvInput,
     am_start_failed,
     app_name,
+    bluetooth_device_slice_cmd,
     close_task,
     force_stop,
     input_passthrough_uri,
@@ -256,3 +263,108 @@ class CoordinatorActionsMixin:
     async def async_screencap(self: AndroidTvAdbCoordinator) -> bytes:
         """Take a PNG screen capture using exec: service to prevent CRLF corruption."""
         return await self.client.exec_raw("screencap -p", timeout=10.0)
+
+    def _resolve_bluetooth_device(
+        self: AndroidTvAdbCoordinator, target: str, *, prefer_connected: bool = False
+    ) -> dict[str, Any] | None:
+        """Resolve a paired Bluetooth device by MAC address, formatted label, or name."""
+        devices: list[dict[str, Any]] = []
+        if self.bluetooth_info and isinstance(self.bluetooth_info.get("devices"), list):
+            devices = self.bluetooth_info["devices"]
+        elif self.data and isinstance(self.data.get("bluetooth_devices"), list):
+            devices = self.data["bluetooth_devices"]
+
+        cleaned = target.strip()
+        if not cleaned:
+            return None
+        upper = cleaned.upper()
+        lower = cleaned.lower()
+
+        # 1. Exact MAC match or "Name (MAC)" / "Name (XX:XX)" suffix match
+        for dev in devices:
+            addr = str(dev.get("address", "")).upper()
+            name = str(dev.get("name", ""))
+            short_mac = addr[-5:] if len(addr) >= 5 else addr
+            if (
+                addr == upper
+                or lower == f"{name} ({addr})".lower()
+                or lower == f"{name} ({short_mac})".lower()
+                or (len(upper) >= 5 and (upper.endswith(f"({addr})") or upper.endswith(f"({short_mac})")))
+            ):
+                return dev
+
+        # 2. Match by device friendly name (case-insensitive)
+        matches = [d for d in devices if str(d.get("name", "")).lower() == lower]
+        if not matches:
+            matches = [d for d in devices if lower in str(d.get("name", "")).lower()]
+        if matches:
+            if prefer_connected:
+                connected_matches = [d for d in matches if d.get("connected")]
+                if connected_matches:
+                    return connected_matches[-1]
+            audio_matches = [d for d in matches if d.get("type") == "audio"]
+            if audio_matches:
+                return audio_matches[-1]
+            return matches[-1]
+
+        # 3. Raw MAC address fallback even if not yet cached in bluetooth_info
+        if len(upper) == 17 and upper.count(":") == 5:
+            return {"address": upper, "name": "", "type": "audio", "connected": False}
+
+        return None
+
+    async def async_pair_bluetooth(self: AndroidTvAdbCoordinator) -> None:
+        """Open the Android TV Bluetooth accessory pairing screen."""
+        res = await self.client.shell(CMD_PAIR_BLUETOOTH, timeout=5.0)
+        if am_start_failed(res):
+            await self.client.shell(CMD_BLUETOOTH_SETTINGS, timeout=5.0)
+
+    async def async_connect_bluetooth(self: AndroidTvAdbCoordinator, target: str) -> None:
+        """Connect a paired Bluetooth audio/accessory device via the Android TV slice UI."""
+        dev = self._resolve_bluetooth_device(target, prefer_connected=False)
+        if not dev:
+            _LOGGER.warning("Bluetooth device '%s' not found in paired devices on %s", target, self.host)
+            return
+
+        address = str(dev.get("address", "")).upper()
+        name = str(dev.get("name", ""))
+        cmd = bluetooth_device_slice_cmd(address, name)
+        await self.client.shell(cmd, timeout=5.0)
+        await asyncio.sleep(0.8)
+        # Row 0 on a disconnected device slice is "Connect" -> opens Yes/No dialog with "Yes" focused
+        await self.async_send_key(KEY_DPAD_CENTER)
+        await asyncio.sleep(0.5)
+        await self.async_send_key(KEY_DPAD_CENTER)
+        await asyncio.sleep(0.5)
+        await self.async_send_key(KEY_BACK)
+        await asyncio.sleep(0.8)
+        await self._async_update_health()
+        await self.async_request_refresh()
+
+    async def async_disconnect_bluetooth(self: AndroidTvAdbCoordinator, target: str) -> None:
+        """Disconnect a connected Bluetooth device via the Android TV slice UI."""
+        dev = self._resolve_bluetooth_device(target, prefer_connected=True)
+        if not dev:
+            _LOGGER.warning("Bluetooth device '%s' not found in paired devices on %s", target, self.host)
+            return
+
+        address = str(dev.get("address", "")).upper()
+        name = str(dev.get("name", ""))
+        cmd = bluetooth_device_slice_cmd(address, name)
+        await self.client.shell(cmd, timeout=5.0)
+        await asyncio.sleep(0.8)
+        # Connected audio devices have Row 0 = "Use for audio" toggle and Row 1 = "Disconnect"
+        if dev.get("type", "audio") == "audio":
+            await self.async_send_key(KEY_DPAD_DOWN)
+            await asyncio.sleep(0.25)
+        # Activate "Disconnect" -> opens Yes/No confirmation dialog with "No" (index 1) focused
+        await self.async_send_key(KEY_DPAD_CENTER)
+        await asyncio.sleep(0.5)
+        await self.async_send_key(KEY_DPAD_UP)
+        await asyncio.sleep(0.2)
+        await self.async_send_key(KEY_DPAD_CENTER)
+        await asyncio.sleep(0.5)
+        await self.async_send_key(KEY_BACK)
+        await asyncio.sleep(0.8)
+        await self._async_update_health()
+        await self.async_request_refresh()

@@ -65,7 +65,12 @@ class CoordinatorRegistryMixin:
             from homeassistant.helpers import device_registry as dr
 
             dev_reg = dr.async_get(self.hass)
-            device = dev_reg.async_get_device(identifiers={(DOMAIN, self.host)})
+            device = None
+            if hasattr(dr, "async_entries_for_config_entry") and getattr(self.entry, "entry_id", None):
+                entries = dr.async_entries_for_config_entry(dev_reg, self.entry.entry_id)
+                device = next((d for d in entries if (DOMAIN, self.host) in d.identifiers), entries[0] if entries else None)
+            elif hasattr(dev_reg, "async_get_device"):
+                device = dev_reg.async_get_device(identifiers={(DOMAIN, self.host)})
             if device:
                 props = self.device_properties
                 updates: dict[str, Any] = {}

@@ -60,9 +60,13 @@ SERVICE_SEND_TEXT_INPUT = "send_text_input"
 SERVICE_SEARCH = "search"
 SERVICE_TRIM_CACHES = "trim_caches"
 SERVICE_START_SCREENSAVER = "start_screensaver"
+SERVICE_PAIR_BLUETOOTH = "pair_bluetooth"
+SERVICE_CONNECT_BLUETOOTH = "connect_bluetooth"
+SERVICE_DISCONNECT_BLUETOOTH = "disconnect_bluetooth"
 
 # Service Attributes
 ATTR_COMMAND = "command"
+ATTR_DEVICE = "device"
 ATTR_ENTITY_ID = "entity_id"
 ATTR_KEY = "key"
 ATTR_KEY_SEQUENCE = "key_sequence"
@@ -112,6 +116,7 @@ __all__ = [
     "ATTR_APP_ID",
     "ATTR_COMMAND",
     "ATTR_DELAY_SECS",
+    "ATTR_DEVICE",
     "ATTR_ENTITY_ID",
     "ATTR_KEY",
     "ATTR_KEY_SEQUENCE",
@@ -187,7 +192,10 @@ __all__ = [
     "MDNS_CONNECT_TYPE",
     "MDNS_PAIRING_TYPE",
     "SERVICE_ADB_COMMAND",
+    "SERVICE_CONNECT_BLUETOOTH",
+    "SERVICE_DISCONNECT_BLUETOOTH",
     "SERVICE_LAUNCH_APP",
+    "SERVICE_PAIR_BLUETOOTH",
     "SERVICE_SEARCH",
     "SERVICE_SEND_KEY",
     "SERVICE_SEND_KEY_SEQUENCE",

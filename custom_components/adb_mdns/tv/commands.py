@@ -31,6 +31,7 @@ CMD_DEVICE_PROPERTIES = "; ".join(
         'echo "HDMI_TYPE=$(getprop ro.hdmi.device_type)"',
         _section("LINK", "ip -o link show 2>/dev/null"),
         _section("ADDR", "ip -o -4 addr show 2>/dev/null"),
+        _section("WIFI_MAC", "dumpsys wifi 2>/dev/null | grep -m2 -E 'wifi_sta_factory_mac_address=|mWifiInfo.*MAC:'"),
     ]
 )
 
@@ -104,7 +105,10 @@ def build_health_command(include_inputs: bool) -> str:
         _section(
             "BT",
             "dumpsys bluetooth_manager 2>/dev/null | grep -m1 -E '^ *enabled:'; "
-            "dumpsys bluetooth_manager 2>/dev/null | sed -n '/Bonded devices:/,/^ *$/p'",
+            "dumpsys bluetooth_manager 2>/dev/null | sed -n '/Bonded devices:/,/^ *$/p'; "
+            "dumpsys bluetooth_manager 2>/dev/null | grep -E "
+            "'last_active_time=.*profile connection policy|mActiveDevice:|=== A2dpStateMachine for|"
+            "mConnectionState:|StateMachine: name=A2dpStateMachine|^    [0-9A-FX:]{17} : [0-9]+'",
         ),
         _section(
             "BTIN",
@@ -194,6 +198,28 @@ CMD_TRIM_CACHES = (
 )
 
 CMD_START_SCREENSAVER = "cmd dreams start-dreaming 2>&1 || am start -n com.android.systemui/.Somnambulator 2>&1"
+
+CMD_PAIR_BLUETOOTH = (
+    "am start -a com.google.android.intent.action.CONNECT_INPUT 2>&1 || "
+    "am start -a android.settings.BLUETOOTH_SETTINGS 2>&1"
+)
+
+CMD_BLUETOOTH_SETTINGS = (
+    "am start -a android.settings.SLICE_SETTINGS "
+    "--es slice_uri 'content://com.android.tv.settings.accessories.sliceprovider/general' "
+    "--ez startup_verification_required false 2>&1 || "
+    "am start -a android.settings.BLUETOOTH_SETTINGS 2>&1"
+)
+
+
+def bluetooth_device_slice_cmd(address: str, name: str = "") -> str:
+    """Build command to open a specific paired Bluetooth device's slice page."""
+    suffix = f"{address} {name}".strip()
+    uri = f"content://com.android.tv.settings.accessories.sliceprovider/device/{suffix}"
+    return (
+        f"am start -a android.settings.SLICE_SETTINGS --es slice_uri {q(uri)} "
+        "--ez startup_verification_required false 2>&1"
+    )
 
 
 def close_task(task_id: int) -> str:

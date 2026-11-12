@@ -16,6 +16,7 @@ from .const import (
     ATTR_APP_ID,
     ATTR_COMMAND,
     ATTR_DELAY_SECS,
+    ATTR_DEVICE,
     ATTR_KEY,
     ATTR_KEY_SEQUENCE,
     ATTR_NUM_REPEATS,
@@ -26,7 +27,10 @@ from .const import (
     ATTR_URL,
     DOMAIN,
     SERVICE_ADB_COMMAND,
+    SERVICE_CONNECT_BLUETOOTH,
+    SERVICE_DISCONNECT_BLUETOOTH,
     SERVICE_LAUNCH_APP,
+    SERVICE_PAIR_BLUETOOTH,
     SERVICE_SEARCH,
     SERVICE_SEND_KEY,
     SERVICE_SEND_KEY_SEQUENCE,
@@ -254,6 +258,56 @@ def async_setup_services(hass: HomeAssistant) -> None:
 
     hass.services.async_register(DOMAIN, SERVICE_START_SCREENSAVER, handle_start_screensaver, schema=schema_screensaver)
 
+    # 10. pair_bluetooth
+    schema_pair_bluetooth = vol.Schema(
+        {
+            **_target_selector_fields(),
+        }
+    )
+
+    async def handle_pair_bluetooth(call: ServiceCall) -> None:
+        targets = _resolve_service_targets(hass, call)
+        for coord in targets:
+            await coord.async_pair_bluetooth()
+
+    hass.services.async_register(DOMAIN, SERVICE_PAIR_BLUETOOTH, handle_pair_bluetooth, schema=schema_pair_bluetooth)
+
+    # 11. connect_bluetooth
+    schema_connect_bluetooth = vol.Schema(
+        {
+            vol.Required(ATTR_DEVICE): cv.string,
+            **_target_selector_fields(),
+        }
+    )
+
+    async def handle_connect_bluetooth(call: ServiceCall) -> None:
+        device_target = call.data[ATTR_DEVICE]
+        targets = _resolve_service_targets(hass, call)
+        for coord in targets:
+            await coord.async_connect_bluetooth(device_target)
+
+    hass.services.async_register(
+        DOMAIN, SERVICE_CONNECT_BLUETOOTH, handle_connect_bluetooth, schema=schema_connect_bluetooth
+    )
+
+    # 12. disconnect_bluetooth
+    schema_disconnect_bluetooth = vol.Schema(
+        {
+            vol.Required(ATTR_DEVICE): cv.string,
+            **_target_selector_fields(),
+        }
+    )
+
+    async def handle_disconnect_bluetooth(call: ServiceCall) -> None:
+        device_target = call.data[ATTR_DEVICE]
+        targets = _resolve_service_targets(hass, call)
+        for coord in targets:
+            await coord.async_disconnect_bluetooth(device_target)
+
+    hass.services.async_register(
+        DOMAIN, SERVICE_DISCONNECT_BLUETOOTH, handle_disconnect_bluetooth, schema=schema_disconnect_bluetooth
+    )
+
 
 def async_unload_services(hass: HomeAssistant) -> None:
     """Remove all registered services when no config entries remain."""
@@ -267,6 +321,9 @@ def async_unload_services(hass: HomeAssistant) -> None:
         SERVICE_SEARCH,
         SERVICE_TRIM_CACHES,
         SERVICE_START_SCREENSAVER,
+        SERVICE_PAIR_BLUETOOTH,
+        SERVICE_CONNECT_BLUETOOTH,
+        SERVICE_DISCONNECT_BLUETOOTH,
     ]
     for s in services:
         if hass.services.has_service(DOMAIN, s):

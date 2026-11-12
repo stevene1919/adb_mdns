@@ -19,6 +19,9 @@ Every action supports full Home Assistant targeting: `entity_id`, `device_id`, `
 | **`adb_mdns.search`** | Search globally across Android TV or directly inside YouTube. | `query: "SpaceX"`, `target: "youtube"` |
 | **`adb_mdns.trim_caches`** | Reclaim storage by trimming app caches (`pm trim-caches`). | *(no fields required)* |
 | **`adb_mdns.start_screensaver`** | Immediately trigger the Android Daydream screensaver. | *(no fields required)* |
+| **`adb_mdns.pair_bluetooth`** | Open the Android TV Bluetooth accessory pairing screen. | *(no fields required)* |
+| **`adb_mdns.connect_bluetooth`** | Connect a paired Bluetooth headphone or accessory by name or MAC. | `device: "Steven's Pixel Buds Pro 2"` |
+| **`adb_mdns.disconnect_bluetooth`** | Disconnect a connected Bluetooth headphone or accessory. | `device: "Steven's Pixel Buds Pro 2"` |
 
 ---
 
@@ -121,6 +124,32 @@ Frees temporary internal storage across all installed apps by calling Android's 
 action: adb_mdns.trim_caches
 target:
   entity_id: media_player.living_room_tv
+```
+
+---
+
+### 8. `adb_mdns.pair_bluetooth`, `adb_mdns.connect_bluetooth`, & `adb_mdns.disconnect_bluetooth`
+Control Bluetooth headphones, speakers, and accessories on Android TV / Google TV:
+
+```yaml
+# Launch the "Searching for accessories..." Bluetooth pairing screen
+action: adb_mdns.pair_bluetooth
+target:
+  entity_id: media_player.living_room_tv
+
+# Connect paired Bluetooth headphones by friendly name or MAC address
+action: adb_mdns.connect_bluetooth
+target:
+  entity_id: media_player.living_room_tv
+data:
+  device: "Steven's Pixel Buds Pro 2"
+
+# Disconnect active Bluetooth headphones
+action: adb_mdns.disconnect_bluetooth
+target:
+  entity_id: media_player.living_room_tv
+data:
+  device: "Steven's Pixel Buds Pro 2"
 ```
 
 ---

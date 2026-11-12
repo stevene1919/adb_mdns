@@ -208,3 +208,49 @@ start_screensaver:
       domain:
         - media_player
         - remote
+
+pair_bluetooth:
+  name: Pair Bluetooth Accessory
+  description: Launch the Android TV Bluetooth accessory pairing screen ("Searching for accessories...").
+  target:
+    entity:
+      integration: adb_mdns
+      domain:
+        - media_player
+        - remote
+
+connect_bluetooth:
+  name: Connect Bluetooth Device
+  description: Connect a paired Bluetooth headphone, speaker, or accessory by friendly name or MAC address.
+  target:
+    entity:
+      integration: adb_mdns
+      domain:
+        - media_player
+        - remote
+  fields:
+    device:
+      name: Bluetooth Device Name or MAC
+      description: Friendly name (e.g. "Steven's Pixel Buds Pro 2") or MAC address (e.g. "04:00:6E:D1:CF:17") of the paired Bluetooth device.
+      required: true
+      example: "Steven's Pixel Buds Pro 2"
+      selector:
+        text:
+
+disconnect_bluetooth:
+  name: Disconnect Bluetooth Device
+  description: Disconnect a currently connected Bluetooth headphone, speaker, or accessory by friendly name or MAC address.
+  target:
+    entity:
+      integration: adb_mdns
+      domain:
+        - media_player
+        - remote
+  fields:
+    device:
+      name: Bluetooth Device Name or MAC
+      description: Friendly name (e.g. "Steven's Pixel Buds Pro 2") or MAC address (e.g. "04:00:6E:D1:CF:17") of the paired Bluetooth device.
+      required: true
+      example: "Steven's Pixel Buds Pro 2"
+      selector:
+        text:

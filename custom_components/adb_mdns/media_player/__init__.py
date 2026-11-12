@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from datetime import datetime
 from typing import Any
 
 from homeassistant.components.media_player import (
@@ -29,7 +30,6 @@ from ..const import (
 from ..coordinator import AndroidTvAdbCoordinator
 from ..entity import AndroidTvAdbEntity
 from ..tv import (
-    ACTION_SEEK_TO as ADB_ACTION_SEEK_TO,
     APPS,
     app_name,
     is_launcher,
@@ -65,34 +65,28 @@ class AndroidTvAdbMediaPlayer(
     _attr_device_class = MediaPlayerDeviceClass.TV
     _attr_has_entity_name = True
     _attr_name = None
+    _attr_supported_features = (
+        MediaPlayerEntityFeature.TURN_ON
+        | MediaPlayerEntityFeature.TURN_OFF
+        | MediaPlayerEntityFeature.VOLUME_STEP
+        | MediaPlayerEntityFeature.VOLUME_SET
+        | MediaPlayerEntityFeature.VOLUME_MUTE
+        | MediaPlayerEntityFeature.PLAY
+        | MediaPlayerEntityFeature.PAUSE
+        | MediaPlayerEntityFeature.STOP
+        | MediaPlayerEntityFeature.NEXT_TRACK
+        | MediaPlayerEntityFeature.PREVIOUS_TRACK
+        | MediaPlayerEntityFeature.SELECT_SOURCE
+        | MediaPlayerEntityFeature.SELECT_SOUND_MODE
+        | MediaPlayerEntityFeature.PLAY_MEDIA
+        | MediaPlayerEntityFeature.BROWSE_MEDIA
+    )
 
     def __init__(self, coordinator: AndroidTvAdbCoordinator, entry: ConfigEntry) -> None:
         """Initialize the media player entity."""
         super().__init__(coordinator, entry)
         self._attr_unique_id = f"{entry.data[CONF_HOST]}_media_player"
         self._last_image_data: bytes | None = None
-
-    @property
-    def supported_features(self) -> MediaPlayerEntityFeature:
-        """Dynamically compute supported features based on playback state and session actions."""
-        features = (
-            MediaPlayerEntityFeature.TURN_ON
-            | MediaPlayerEntityFeature.TURN_OFF
-            | MediaPlayerEntityFeature.VOLUME_STEP
-            | MediaPlayerEntityFeature.VOLUME_SET
-            | MediaPlayerEntityFeature.VOLUME_MUTE
-            | MediaPlayerEntityFeature.PLAY
-            | MediaPlayerEntityFeature.PAUSE
-            | MediaPlayerEntityFeature.STOP
-            | MediaPlayerEntityFeature.NEXT_TRACK
-            | MediaPlayerEntityFeature.PREVIOUS_TRACK
-            | MediaPlayerEntityFeature.SELECT_SOURCE
-            | MediaPlayerEntityFeature.PLAY_MEDIA
-            | MediaPlayerEntityFeature.BROWSE_MEDIA
-        )
-        if self.coordinator.data and (actions := self.coordinator.data.get("media_actions", 0)) and (actions & ADB_ACTION_SEEK_TO):
-            features |= MediaPlayerEntityFeature.SEEK
-        return features
 
     @property
     def state(self) -> MediaPlayerState:
@@ -109,14 +103,69 @@ class AndroidTvAdbMediaPlayer(
         return None
 
     @property
+    def app_name(self) -> str | None:
+        """Return current foreground application friendly name."""
+        if not self.coordinator.data:
+            return None
+        custom_apps = self.entry.options.get(CONF_APPS, {})
+        return app_name(self.coordinator.data.get("current_app"), custom_apps) or self.coordinator.data.get("app_name")
+
+    @property
     def source(self) -> str | None:
         """Return current friendly application name or active HDMI input."""
         if not self.coordinator.data:
             return None
         if hdmi := self.coordinator.data.get("hdmi_input"):
             return hdmi
-        custom_apps = self.entry.options.get(CONF_APPS, {})
-        return app_name(self.coordinator.data.get("current_app"), custom_apps) or self.coordinator.data.get("app_name")
+        return self.app_name
+
+    def _paired_audio_bluetooth_devices(self) -> list[dict[str, Any]]:
+        """Return paired Bluetooth audio devices with unique display labels."""
+        raw_devices: list[dict[str, Any]] = []
+        if self.coordinator.data and isinstance(self.coordinator.data.get("bluetooth_devices"), list):
+            raw_devices = self.coordinator.data["bluetooth_devices"]
+        elif self.coordinator.bluetooth_info and isinstance(self.coordinator.bluetooth_info.get("devices"), list):
+            raw_devices = self.coordinator.bluetooth_info["devices"]
+
+        audio_devs = [d for d in raw_devices if d.get("type") == "audio"]
+        name_counts: dict[str, int] = {}
+        for d in audio_devs:
+            n = str(d.get("name", "")).strip()
+            name_counts[n] = name_counts.get(n, 0) + 1
+
+        labeled: list[dict[str, Any]] = []
+        for d in audio_devs:
+            n = str(d.get("name", "")).strip()
+            addr = str(d.get("address", "")).upper()
+            short_mac = addr[-5:] if len(addr) >= 5 else addr
+            label = f"{n} ({short_mac})" if name_counts.get(n, 0) > 1 else (n or addr)
+            labeled.append({**d, "label": label})
+        return labeled
+
+    @property
+    def sound_mode(self) -> str | None:
+        """Return the current active audio output / Bluetooth headphone."""
+        for d in self._paired_audio_bluetooth_devices():
+            if d.get("connected"):
+                return d["label"]
+        if self.coordinator.data and (out := self.coordinator.data.get("audio_output")):
+            return out
+        return "TV Speaker" if self.coordinator.is_tv_panel else "HDMI"
+
+    @property
+    def sound_mode_list(self) -> list[str]:
+        """Return available audio output modes including paired Bluetooth headphones."""
+        default_out = "TV Speaker" if self.coordinator.is_tv_panel else "HDMI"
+        if self.coordinator.data:
+            cur_out = self.coordinator.data.get("audio_output")
+            if cur_out and cur_out != "Bluetooth":
+                default_out = cur_out
+        modes: list[str] = [default_out]
+        for d in self._paired_audio_bluetooth_devices():
+            lbl = d["label"]
+            if lbl and lbl not in modes:
+                modes.append(lbl)
+        return modes
 
     @property
     def source_list(self) -> list[str]:
@@ -182,14 +231,14 @@ class AndroidTvAdbMediaPlayer(
         return None
 
     @property
-    def media_position(self) -> float | None:
+    def media_position(self) -> int | None:
         """Position of current playing media in seconds."""
         if self.coordinator.data:
             return self.coordinator.data.get("media_position")
         return None
 
     @property
-    def media_position_updated_at(self) -> float | None:
+    def media_position_updated_at(self) -> datetime | None:
         """When was the position of the current playing media valid."""
         if self.coordinator.data:
             return self.coordinator.data.get("media_position_updated_at")
@@ -198,6 +247,8 @@ class AndroidTvAdbMediaPlayer(
     @property
     def media_image_hash(self) -> str | None:
         """Hash value for media image to trigger frontend refresh."""
+        if self.state == MediaPlayerState.OFF:
+            return None
         if self.coordinator.data:
             return self.coordinator.data.get("screencap_hash")
         return None
@@ -205,16 +256,22 @@ class AndroidTvAdbMediaPlayer(
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         """Return additional state attributes matching reference ADB integration."""
-        attrs: dict[str, Any] = {
+        bt_audio = [
+            {
+                "name": d.get("name"),
+                "address": d.get("address"),
+                "connected": bool(d.get("connected")),
+            }
+            for d in self._paired_audio_bluetooth_devices()
+        ]
+        return {
             "adb_response": self.coordinator.data.get("adb_response") if self.coordinator.data else None,
             "hdmi_input": self.coordinator.data.get("hdmi_input") if self.coordinator.data else None,
             "audio_output": self.coordinator.data.get("audio_output") if self.coordinator.data else None,
+            "bluetooth_audio_devices": bt_audio,
             "keyboard_active": self.coordinator.data.get("keyboard_active", False) if self.coordinator.data else False,
             "open_apps_count": self.coordinator.data.get("open_apps_count", 0) if self.coordinator.data else 0,
         }
-        if self.coordinator.data and (app_id := self.coordinator.data.get("current_app")):
-            attrs["app_id"] = app_id
-        return attrs
 
 
 __all__ = ["AndroidTvAdbMediaPlayer", "async_setup_entry"]

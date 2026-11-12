@@ -24,6 +24,7 @@ Home Assistant users with Android TV and Google TV devices previously faced an a
 | **Hardware HDMI-CEC Discovery** | ❌ Basic | ❌ None | ✅ **Dynamic CEC naming via `dumpsys`** |
 | **On-Screen Keyboard Detection** | ❌ None | ❌ None | ✅ **Real-time `binary_sensor` active state** |
 | **System Diagnostics** | ❌ None | ❌ None | ✅ **SoC Temp, RAM, Storage, CPU Load** |
+| **Bluetooth Audio & Pairing** | ❌ None | ❌ None | ✅ **Headphone Sound Mode selector + Pairing UI** |
 | **Background App Control** | ❌ Limited | ❌ None | ✅ **Force-stop apps & trim cache button** |
 | **Zero On-Device Binaries** | ⚠️ Installs helper | ✅ Pure | ✅ **Zero APKs / zero jar files pushed** |
 
@@ -77,7 +78,8 @@ Compatible with any device running **Android 11 (API 30) or higher** with Wirele
 
 - 🔒 **Native TLS 1.3 Wireless Debugging:** Directly authenticates with stock Android developer options. Zero legacy port 5555 vulnerabilities.
 - ⚡ **Dynamic mDNS Port Tracking:** Automatically tracks changing connect ports via `_adb-tls-connect._tcp.local.` whenever the device reboots.
-- 📺 **Rich Media Player & Media Browser:** Play, Pause, Stop, Seek, Volume, App Launcher dropdown, and interactive Browsable App Tiles.
+- 📺 **Rich Media Player & Media Browser:** Play, Pause, Stop, Volume, App Launcher dropdown, Bluetooth headphone Sound Mode selector, and interactive Browsable App Tiles.
+- 🎧 **Bluetooth Headphone & Accessory Control:** Switch audio between TV/HDMI and paired Bluetooth headphones directly from the Media Player `sound_mode` dropdown, trigger Bluetooth pairing mode with one button press, or automate connections via `adb_mdns.connect_bluetooth` / `adb_mdns.disconnect_bluetooth`.
 - 🎮 **Hardware HDMI Inputs & CEC Discovery:** Dynamically names inputs based on connected HDMI-CEC devices (`HDMI 1 · PlayStation 5`) with direct passthrough URI switching.
 - ⌨️ **Real-Time On-Screen Keyboard Detection:** Detects when a search bar or text field is focused on the TV screen (`binary_sensor.*_keyboard_active`).
 - 🧹 **System Management & Storage Reclaim:** Buttons to trim app caches (`pm trim-caches 999G`), immediately start screensaver, and restart the TV.

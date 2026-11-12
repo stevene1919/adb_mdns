@@ -43,6 +43,7 @@ def parse_kv(text: str) -> dict[str, str]:
 
 _RE_LINK = re.compile(r"^\d+:\s+([\w.@-]+?)(?:@\S+)?:\s.*?link/ether\s+([0-9a-fA-F:]{17})")
 _RE_ADDR = re.compile(r"^\d+:\s+([\w.@-]+?)\s+inet\s+([\d.]+)/")
+_RE_WIFI_MAC = re.compile(r"(?:wifi_sta_factory_mac_address=|MAC:\s*)([0-9a-fA-F]{2}(?::[0-9a-fA-F]{2}){5})")
 
 
 def parse_device_properties(output: str, host: str | None = None) -> dict[str, str]:
@@ -68,6 +69,15 @@ def parse_device_properties(output: str, host: str | None = None) -> dict[str, s
             if iface in macs:
                 mac = macs[iface]
                 break
+    if not mac:
+        for line in sections.get("WIFI_MAC", "").splitlines():
+            if m := _RE_WIFI_MAC.search(line):
+                candidate = m.group(1).lower()
+                if candidate not in ("00:00:00:00:00:00", "02:00:00:00:00:00"):
+                    mac = candidate
+                    if not iface_for_host:
+                        iface_for_host = "wlan0"
+                    break
     return {
         "name": kv.get("NAME", ""),
         "manufacturer": kv.get("MFG", ""),
@@ -257,22 +267,74 @@ def cpu_percent(prev: tuple[int, int] | None, cur: tuple[int, int] | None) -> fl
 
 
 _RE_BT_ADDR = re.compile(r"([0-9A-FX]{2}(?::[0-9A-FX]{2}){5})", re.IGNORECASE)
+_RE_BT_A2DP_SM = re.compile(r"(?:===\s*)?A2dpStateMachine for ([0-9A-FX:]{17})", re.IGNORECASE)
+_RE_BT_HID_STATE = re.compile(r"^\s*([0-9A-FX:]{17})\s*:\s*(\d+)\s*$", re.IGNORECASE)
+
+
+def _match_bt_device(devices: dict[str, dict[str, Any]], addr_or_masked: str) -> dict[str, Any] | None:
+    """Match a full or XX-redacted Bluetooth address against bonded devices."""
+    upper = addr_or_masked.upper()
+    if upper in devices:
+        return devices[upper]
+    suffix = upper[-5:]
+    if len(suffix) == 5 and "X" not in suffix:
+        matches = [d for a, d in devices.items() if a.endswith(suffix)]
+        if len(matches) == 1:
+            return matches[0]
+    return None
 
 
 def parse_bluetooth(bt: str, inputs: str) -> dict[str, Any] | None:
-    """Parse ``bluetooth_manager`` bonded devices and Bluetooth input devices."""
+    """Parse ``bluetooth_manager`` bonded devices, profile types, and connection states."""
     on_m = re.search(r"enabled:\s*(\w+)", bt)
     if not on_m:
         return None
     devices: dict[str, dict[str, Any]] = {}
-    bonded = bt.split("Bonded devices:", 1)[1] if "Bonded devices:" in bt else ""
-    for line in bonded.splitlines():
+    bonded_block = bt.split("Bonded devices:", 1)[1] if "Bonded devices:" in bt else ""
+    for line in bonded_block.splitlines():
+        if line and not line.startswith(" ") and not line.startswith("\t"):
+            break
         m = _RE_BT_ADDR.search(line)
         if not m:
             continue
-        name = re.sub(r"\[[^\]]*\]", "", line[m.end() :]).strip()
         addr = m.group(1).upper()
-        devices[addr] = {"name": name or addr, "address": addr, "connected": False}
+        if "X" in addr:
+            continue
+        name = re.sub(r"\[[^\]]*\]", "", line[m.end() :]).strip()
+        devices[addr] = {"name": name or addr, "address": addr, "connected": False, "type": "other"}
+
+    # Parse profile policies, A2dpStateMachine, mActiveDevice, and HidHostService states
+    current_a2dp_dev: dict[str, Any] | None = None
+    for line in bt.splitlines():
+        if "profile connection policy(" in line and (m := _RE_BT_ADDR.search(line)):
+            dev = _match_bt_device(devices, m.group(1))
+            if dev is not None:
+                if any(p in line for p in ("A2DP=100", "HEADSET=100", "LE_AUDIO=100", "HEARING_AID=100")):
+                    dev["type"] = "audio"
+                elif "HID_HOST=100" in line and dev.get("type") == "other":
+                    dev["type"] = "input"
+        elif m := _RE_BT_A2DP_SM.search(line):
+            current_a2dp_dev = _match_bt_device(devices, m.group(1))
+            if current_a2dp_dev is not None and current_a2dp_dev.get("type") == "other":
+                current_a2dp_dev["type"] = "audio"
+        elif current_a2dp_dev is not None and (
+            "mConnectionState: CONNECTED" in line or "StateMachine: name=A2dpStateMachine state=Connected" in line
+        ):
+            current_a2dp_dev["connected"] = True
+        elif "mActiveDevice:" in line and (m := _RE_BT_ADDR.search(line)):
+            dev = _match_bt_device(devices, m.group(1))
+            if dev is not None:
+                dev["connected"] = True
+                if dev.get("type") == "other":
+                    dev["type"] = "audio"
+        elif m := _RE_BT_HID_STATE.match(line):
+            dev = _match_bt_device(devices, m.group(1))
+            if dev is not None:
+                if int(m.group(2)) == 2:
+                    dev["connected"] = True
+                if dev.get("type") == "other":
+                    dev["type"] = "input"
+
     for line in inputs.splitlines():
         if "|" not in line:
             continue
@@ -284,8 +346,10 @@ def parse_bluetooth(bt: str, inputs: str) -> dict[str, Any] | None:
             known = next((d for d in devices.values() if d["name"] == name), None)
         if known is not None:
             known["connected"] = True
+            if known.get("type") == "other":
+                known["type"] = "input"
         else:
-            devices[addr or name] = {"name": name, "address": addr or "", "connected": True}
+            devices[addr or name] = {"name": name, "address": addr or "", "connected": True, "type": "input"}
     return {"enabled": on_m.group(1).lower() == "true", "devices": list(devices.values())}
 
 

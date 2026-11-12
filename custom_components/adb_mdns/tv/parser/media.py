@@ -28,11 +28,11 @@ _RE_SESSION_PKG = re.compile(r"^\s*package=([\w.]+)")
 _RE_SESSION_ACTIVE = re.compile(r"^\s*active=(true|false)")
 _RE_PB_STATE = re.compile(r"state=PlaybackState\s*\{(.*)\}")
 _RE_PB_FIELD = {
-    "state": re.compile(r"(?:^|[\s,{])state=(-?\d+)"),
+    "state": re.compile(r"(?:^|[\s,{])state=(?:[A-Z_]+\()?(-?\d+)"),
     "position": re.compile(r"position=(-?\d+)"),
     "speed": re.compile(r"speed=(-?[\d.]+)"),
     "updated": re.compile(r"updated=(-?\d+)"),
-    "actions": re.compile(r"actions=(\d+)"),
+    "actions": re.compile(r"actions=(-?\d+)"),
 }
 _RE_METADATA = re.compile(r"metadata:\s*(?:size=\d+,\s*)?description=(.*)$")
 
@@ -121,12 +121,19 @@ def pick_media_session(sessions: list[MediaSession], foreground: str | None) -> 
     """Pick the session that best describes what's on screen."""
     if not sessions:
         return None
+    active_states = (
+        PLAYBACK_PLAYING,
+        PLAYBACK_PAUSED,
+        PLAYBACK_BUFFERING,
+        PLAYBACK_FAST_FORWARDING,
+        PLAYBACK_REWINDING,
+    )
     if foreground:
         for session in sessions:
             if session.package == foreground and session.active:
                 return session
         for session in sessions:
-            if session.package == foreground and session.state is not None:
+            if session.package == foreground and session.state in active_states:
                 return session
     for session in sessions:
         if session.active and session.is_playing:

@@ -12,6 +12,7 @@ from custom_components.adb_mdns.tv.apps import (
 )
 from custom_components.adb_mdns.tv.commands import (
     CMD_POLL_STATUS,
+    bluetooth_device_slice_cmd,
     build_health_command,
     input_text,
     q,
@@ -141,6 +142,21 @@ def test_parse_device_properties() -> None:
     assert props["mac"] == "00:04:4b:ea:01:23"
     assert props["interface"] == "eth0"
 
+    # Android 14 fallback via ##WIFI_MAC when ip link is restricted
+    output_a14 = (
+        "##PROPS\n"
+        "NAME=Sabrina\n"
+        "MFG=Google\n"
+        "MODEL=Chromecast\n"
+        "##LINK\n"
+        "##ADDR\n"
+        "##WIFI_MAC\n"
+        "wifi_sta_factory_mac_address=30:fd:38:ad:29:e4\n"
+    )
+    props_a14 = parse_device_properties(output_a14, host="192.168.50.10")
+    assert props_a14["mac"] == "30:fd:38:ad:29:e4"
+    assert props_a14["interface"] == "wlan0"
+
 
 def test_parse_packages() -> None:
     """Test pm list packages parser."""
@@ -191,6 +207,20 @@ def test_parse_media_sessions_and_position() -> None:
     picked = pick_media_session(sessions, "com.spotify.tv.android")
     assert picked == session
 
+    # Android 14 format: state=STOPPED(1) and state=PLAYING(3) with negative actions=-1
+    sample_a14 = (
+        "  package=org.xbmc.kodi\n"
+        "  active=false\n"
+        "  state=PlaybackState {state=STOPPED(1), position=0, buffered position=0, speed=0.0, updated=2567275, actions=-1}\n"
+        "  metadata: size=4, description=Stale Title, null, null\n"
+    )
+    sessions_a14 = parse_media_sessions(sample_a14)
+    assert len(sessions_a14) == 1
+    assert sessions_a14[0].state == 1
+    assert sessions_a14[0].actions == -1
+    # Inactive stopped session should not be picked as active playing/paused media session
+    assert pick_media_session(sessions_a14, "org.xbmc.kodi") is None
+
 
 def test_parse_audio() -> None:
     """Test dumpsys audio STREAM_MUSIC parsing and friendly device names."""
@@ -201,10 +231,19 @@ def test_parse_audio() -> None:
     assert audio.volume == 18
     assert audio.output_name == "HDMI ARC"
 
-    # Android hex bitmask device strings e.g. hdmi(400) on Chromecast
-    sample_hdmi = "- STREAM_MUSIC:\n   Devices: hdmi(400)\n   (hdmi): 15\n"
+    # Android hex bitmask device strings e.g. hdmi(400) on Chromecast with multiple Current entries
+    sample_hdmi = (
+        "- STREAM_MUSIC:\n"
+        "   Muted: false\n"
+        "   Min: 0\n"
+        "   Max: 25\n"
+        "   streamVolume:14\n"
+        "   Current: 2 (speaker): 25, 80 (bt_a2dp): 17, 400 (hdmi): 14, 80000000 (default): 15\n"
+        "   Devices: hdmi(400)\n"
+    )
     audio_hdmi = parse_audio(sample_hdmi)
     assert audio_hdmi.output_name == "HDMI"
+    assert audio_hdmi.volume == 14
 
     sample_speaker = "- STREAM_MUSIC:\n   Devices: speaker(2)\n"
     assert parse_audio(sample_speaker).output_name == "TV Speaker"
@@ -275,13 +314,33 @@ def test_recents_and_health() -> None:
     assert therm.status == 0
     assert therm.max_temperature == 48.5
 
-    bt_dump = "enabled: true\nBonded devices:\n  11:22:33:44:55:66 SHIELD Remote\n"
+    bt_dump = (
+        "enabled: true\n"
+        "Bonded devices:\n"
+        "  11:22:33:44:55:66 [BR/EDR] SHIELD Remote\n"
+        "  04:00:6E:D1:CF:17 [DUAL] Steven's Pixel Buds Pro 2\n"
+        "\n"
+        "A2dpStateMachine for XX:XX:XX:XX:CF:17 (Steven's Pixel Buds Pro 2):\n"
+        "  mConnectionState: CONNECTED\n"
+        "[04:00:6E:D1:CF:17]\n"
+        "  A2DP=100\n"
+        "  HEADSET=100\n"
+        "[11:22:33:44:55:66]\n"
+        "  HID_HOST=100\n"
+    )
     bt_input = "SHIELD Remote|Identifier: bus=0x0005 bluetoothAddress=11:22:33:44:55:66\n"
     bt = parse_bluetooth(bt_dump, bt_input)
     assert bt is not None
     assert bt["enabled"] is True
-    assert len(bt["devices"]) == 1
+    assert len(bt["devices"]) == 2
     assert bt["devices"][0]["connected"] is True
+    assert bt["devices"][0]["type"] == "input"
+    assert bt["devices"][1]["name"] == "Steven's Pixel Buds Pro 2"
+    assert bt["devices"][1]["type"] == "audio"
+    assert bt["devices"][1]["connected"] is True
+    assert "content://com.android.tv.settings.accessories.sliceprovider/device/04:00:6E:D1:CF:17" in bluetooth_device_slice_cmd(
+        "04:00:6E:D1:CF:17", "Steven's Pixel Buds Pro 2"
+    )
 
 
 def test_shell_commands_generation() -> None:
