@@ -17,7 +17,8 @@ Home Assistant users with Android TV and Google TV devices previously faced an a
 | Feature / Capability | Legacy Built-in `androidtv` | Built-in `androidtv_remote` | ⚡ **ADB mDNS** (This Integration) |
 | :--- | :---: | :---: | :---: |
 | **Connection Transport** | Plaintext TCP Port `5555` | TLS / Protocol Buffers | **Mutual TLS 1.3 over mDNS** |
-| **Android 11+ Reboot Survival** | ❌ Drops permanently (port rotates) | ✅ Survives | ✅ **Dynamic mDNS tracking** (`_adb-tls-connect`) |
+| **Port Rotation Handling** | ❌ Drops permanently (port rotates) | ✅ Fixed port/protocol | ✅ **Dynamic mDNS tracking** (`_adb-tls-connect`) |
+| **Reboot Behavior** | ❌ Requires USB tether + `adb tcpip` | ✅ Survives (System Service) | ⚠️ **Auto-reconnects when Wireless Debugging is active**¹ |
 | **Setup Complexity** | High (USB tether / `adb tcpip 5555`) | Low (PIN pairing) | **Low (On-Screen PIN pairing)** |
 | **Directional Remote Keys** | ✅ Yes | ✅ Yes | ✅ **Yes (Fast key repeats & delays)** |
 | **True ADB Shell Access** | ✅ Yes | ❌ None | ✅ **Pure OS shell (`dumpsys`, `am`, `pm`)** |
@@ -27,6 +28,8 @@ Home Assistant users with Android TV and Google TV devices previously faced an a
 | **Bluetooth Audio & Pairing** | ❌ None | ❌ None | ✅ **Headphone Sound Mode selector + Pairing UI** |
 | **Background App Control** | ❌ Limited | ❌ None | ✅ **Force-stop apps & trim cache button** |
 | **Zero On-Device Binaries** | ⚠️ Installs helper | ✅ Pure | ✅ **Zero APKs / zero jar files pushed** |
+
+> ¹ **Note on Cold Reboots:** Stock Android disables the Wireless Debugging switch upon cold reboot for security. Once Wireless Debugging is re-enabled on the TV (manually in Developer Options or automatically via a boot utility like *ADB Auto Enable*), ADB mDNS automatically discovers the newly randomized port via mDNS and reconnects with zero manual reconfiguration or re-pairing.
 
 ---
 
@@ -77,7 +80,7 @@ Compatible with any device running **Android 11 (API 30) or higher** with Wirele
 ## ✨ Features
 
 - 🔒 **Native TLS 1.3 Wireless Debugging:** Directly authenticates with stock Android developer options. Zero legacy port 5555 vulnerabilities.
-- ⚡ **Dynamic mDNS Port Tracking:** Automatically tracks changing connect ports via `_adb-tls-connect._tcp.local.` whenever the device reboots.
+- ⚡ **Dynamic mDNS Port Tracking:** Automatically tracks and connects to randomized connect ports via `_adb-tls-connect._tcp.local.` whenever Wireless Debugging starts up, eliminating fixed-port configuration issues.
 - 📺 **Rich Media Player & Media Browser:** Play, Pause, Stop, Volume, App Launcher dropdown, Bluetooth headphone Sound Mode selector, and interactive Browsable App Tiles.
 - 🎧 **Bluetooth Headphone & Accessory Control:** Switch audio between TV/HDMI and paired Bluetooth headphones directly from the Media Player `sound_mode` dropdown, trigger Bluetooth pairing mode with one button press, or automate connections via `adb_mdns.connect_bluetooth` / `adb_mdns.disconnect_bluetooth`.
 - 🎮 **Hardware HDMI Inputs & CEC Discovery:** Dynamically names inputs based on connected HDMI-CEC devices (`HDMI 1 · PlayStation 5`) with direct passthrough URI switching.

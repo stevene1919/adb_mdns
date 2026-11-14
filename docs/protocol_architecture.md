@@ -8,7 +8,7 @@ The **ADB mDNS** integration is built from the ground up to communicate with mod
 
 ### 1. Zero Port 5555 Invariant
 - **No Legacy Ports:** Plaintext TCP port `5555` is never probed, connected to, or expected.
-- **Dynamic Port Tracking:** Android 11+ randomizes wireless debugging ports across reboots. The integration listens for Zeroconf mDNS announcements (`_adb-tls-connect._tcp.local.`) and automatically binds to the updated port with zero user intervention.
+- **Dynamic Port Tracking:** Android 11+ randomizes wireless debugging ports (`30000–50000`). Whenever the Wireless Debugging service is active on the TV, the integration listens for Zeroconf mDNS announcements (`_adb-tls-connect._tcp.local.`) and automatically binds to the updated port with zero user reconfiguration.
 
 ### 2. Zero Hardcoding Invariant
 - **100% Dynamic Telemetry:** Model, manufacturer, software build, serial number, and Wi-Fi/Ethernet MAC addresses are queried dynamically from Android properties (`getprop ro.product.model`, `settings get global device_name`, etc.).

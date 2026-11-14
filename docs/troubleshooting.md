@@ -13,9 +13,12 @@ This guide provides diagnostic procedures and solutions for common network, pair
 ---
 
 ### 2. Connection Drops After TV Reboot
-- **Cause:** Android 11+ changes the wireless debugging port upon reboot.
-- **How ADB mDNS handles it:** The integration automatically monitors `_adb-tls-connect._tcp.local.` via Home Assistant Zeroconf and switches ports dynamically.
-- **If mDNS is blocked across VLANs:** Ensure mDNS repeater/reflector (Avahi or your router's mDNS relay) forwards `_adb-tls-connect._tcp.local.` across your IoT VLAN and the Home Assistant subnet, and verify TCP ports `30000–50000` are permitted in firewall egress.
+- **Cause:** Stock Android 11+ automatically disables the **Wireless debugging** toggle whenever the TV cold-reboots, and assigns a new random port when restarted.
+- **How to reconnect:**
+  1. Simply turn **Wireless debugging** back ON under **Developer options** on your TV.
+  2. If you prefer automatic restoration on boot, you can use a lightweight Android utility (such as *ADB Auto Enable* or an automation app) to toggle Wireless Debugging on startup.
+- **Automatic Port Tracking:** Once Wireless Debugging is active, ADB mDNS automatically detects the newly assigned connect port via `_adb-tls-connect._tcp.local.` without requiring any re-pairing or IP/port reconfiguration in Home Assistant.
+- **If mDNS is blocked across VLANs:** Ensure your router's mDNS repeater (e.g., Avahi) forwards `_adb-tls-connect._tcp.local.` across subnets, and ensure TCP ports `30000–50000` are permitted in firewall rules.
 
 ---
 

@@ -14,8 +14,8 @@ Welcome to the initial release of **ADB mDNS** — the zero-binary, high-perform
   - Connects directly to stock Android 11+ Developer Options using native TLS 1.3 encryption and on-screen SPAKE2 PIN pairing.
   - Requires zero command-line tools or external `adb` binaries installed on your Home Assistant host.
 
-- 🔄 **Reboot-Proof Dynamic mDNS Port Tracking**:
-  - Automatically rediscovers and updates rotating connect ports across TV reboots using local Zeroconf discovery (`_adb-tls-connect._tcp.local.`), completely eliminating connection drops.
+- 🔄 **Dynamic mDNS Port Tracking**:
+  - Automatically rediscovers and updates rotating connect ports using local Zeroconf discovery (`_adb-tls-connect._tcp.local.`), seamlessly reconnecting whenever Wireless Debugging is enabled without requiring static port setups.
 
 - 🎨 **Rich Media Browser with High-Res App Artwork**:
   - Open Home Assistant's Media Browser to visually browse your installed Android TV apps with official high-resolution brand logos (Netflix, YouTube, Prime Video, Disney+, Plex, Kodi, Spotify, Stan, ABC iview, Twitch, Apple TV+, and more).
