@@ -4,6 +4,38 @@ All notable changes and user-facing improvements to the **ADB mDNS** integration
 
 ---
 
+## [1.0.1] - 2026-11-17 — 🎧 Bluetooth Sound Mode, Android 14 Playback & Standards Alignment
+
+This release brings Bluetooth headphone/speaker integration, comprehensive fixes for Android 14 Google TV playback state and volume parsing, and Home Assistant 2026 standards compliance.
+
+### 🌟 What's New & Fixed
+
+- 🎧 **Bluetooth Audio & Headphone Sound Mode**:
+  - **Media Player Sound Mode Selector (`sound_mode` / `sound_mode_list`)**: Paired Bluetooth headphones, earphones, and speakers are dynamically discovered and listed in the Sound Mode dropdown alongside primary TV/HDMI output.
+  - **Instant Connection & Disconnection**: Selecting a Bluetooth device connects it directly via Google TV's native Slice provider; selecting TV/HDMI output automatically disconnects active Bluetooth headphones.
+  - **One-Click Bluetooth Pairing**: Added `button.<device>_pair_bluetooth_accessory` and `adb_mdns.pair_bluetooth` service to jump directly to Android TV's native *"Searching for accessories..."* screen.
+  - **Automation Actions**: New `adb_mdns.connect_bluetooth` and `adb_mdns.disconnect_bluetooth` services supporting friendly names or MAC addresses.
+  - **Bluetooth Classification & Diagnostics**: Bonded Bluetooth devices are classified into `"audio"` vs `"input"` devices, and `sensor.<device>_bluetooth_devices` now reports active connected counts and audio device lists.
+
+- 🐛 **Android 14 Google TV Fixes**:
+  - **Playback State Stuck on Idle (#1)**: Fixed Android 14 `dumpsys media_session` regex where enum values formatted as `state=PLAYING(3)` or `state=PAUSED(2)` caused playback states to fail parsing and default to `idle` while metadata was active.
+  - **Volume Level Scaling**: Fixed `STREAM_MUSIC` volume parsing on Android 14 where `Devices: hdmi(400)` failed against parenthesized bitmask entries and caused volume to incorrectly report `1.0` (100%).
+  - **Wi-Fi MAC Discovery**: Added `dumpsys wifi` fallback parsing when `ip -o link show` is restricted by Android 14 SELinux policy.
+  - **Negative Action Masks**: Supported negative signed action bitmasks (e.g. `actions=-1` on Kodi).
+
+- 🏛️ **Home Assistant Standards Alignment**:
+  - `media_position_updated_at` now strictly returns a UTC `datetime` object (`dt_util.utcnow()`) instead of a timestamp float.
+  - `media_position` strictly returns an integer in seconds.
+  - Exposed native `app_name` property and removed redundant `app_id` attribute from `extra_state_attributes`.
+  - Upgraded Device Registry queries to prevent Home Assistant 2026.10 deprecation warnings (`dr.async_entries_for_config_entry`).
+  - Cleared `media_image_hash` when the media player is `OFF`.
+
+- 📖 **Documentation & Roadmap**:
+  - Clarified reboot behavior in documentation: explains why stock Android resets the Wireless Debugging toggle on cold reboot and how dynamic port tracking reconnects once active.
+  - Added architectural plan and roadmap for a companion auto-enabler APK ([`plans/adb_mdns_android_app.md`](https://github.com/stevene1919/adb_mdns/blob/main/TODO.md)).
+
+---
+
 ## [1.0.0] - 2026-11-09 — 🚀 Inaugural Release
 
 Welcome to the initial release of **ADB mDNS** — the zero-binary, high-performance Home Assistant custom integration for modern Android TV, Google TV, and Android 11+ streaming devices!
